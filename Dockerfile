@@ -28,7 +28,7 @@ COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/ersus360
 
 # Copiar dependências primeiro (cache layer)
-COPY composer.json composer.lock ./
+COPY composer.json ./
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-progress
 
 # Copiar aplicação

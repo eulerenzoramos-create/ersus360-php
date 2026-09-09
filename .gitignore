@@ -1,0 +1,32 @@
+# Dependências
+/vendor/
+
+# Env — NUNCA versionar
+.env
+.env.local
+.env.*.local
+
+# Cache e logs
+/storage/logs/
+/storage/cache/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Certificados e chaves — NUNCA versionar
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+/certs/
+
+# Cobertura de testes
+/coverage/
+.phpunit.result.cache

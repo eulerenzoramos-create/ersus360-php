@@ -1,0 +1,17 @@
+# Normalizar line endings para LF no repositório
+* text=auto eol=lf
+
+# Arquivos binários — sem conversão
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.pem  binary
+*.key  binary
+
+# Shell scripts — sempre LF
+*.sh text eol=lf
+artisan text eol=lf

@@ -1,0 +1,70 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * CLI de comandos do ERSUS360 (equivalente ao artisan do Laravel).
+ *
+ * Uso:
+ *   php artisan fns:sincronizar [--municipio=1300144]
+ *   php artisan portarias:sincronizar
+ *   php artisan aps:sincronizar
+ *   php artisan db:migrate [--seed] [--fresh]
+ *   php artisan make:migration nome_da_migration
+ */
+
+declare(strict_types=1);
+
+define('ROOT_PATH', __DIR__);
+
+require __DIR__ . '/vendor/autoload.php';
+
+use Dotenv\Dotenv;
+
+$dotenv = Dotenv::createImmutable(__DIR__);
+$dotenv->safeLoad();
+
+$command = $argv[1] ?? 'help';
+$args    = array_slice($argv, 2);
+
+match (true) {
+    $command === 'db:migrate'             => require __DIR__ . '/database/migrate.php',
+    $command === 'fns:sincronizar'        => runJob('FnsSync', $args),
+    $command === 'portarias:sincronizar'  => runJob('PortariasSync', $args),
+    $command === 'aps:sincronizar'        => runJob('ApsSync', $args),
+    $command === 'cnes:sincronizar'       => runJob('CnesSync', $args),
+    $command === 'indicadores:calcular'   => runJob('IndicadoresCalc', $args),
+    $command === 'alertas:processar'      => runJob('AlertasProcessor', $args),
+    default                               => showHelp(),
+};
+
+function runJob(string $jobName, array $args): void
+{
+    $class = "Ersus360\\Jobs\\{$jobName}";
+    if (!class_exists($class)) {
+        fwrite(STDERR, "Job não encontrado: {$class}\n");
+        exit(1);
+    }
+    (new $class())->handle($args);
+}
+
+function showHelp(): void
+{
+    echo <<<HELP
+ERSUS360 CLI
+
+Uso: php artisan <comando> [opções]
+
+Comandos disponíveis:
+  db:migrate              Aplica migrations pendentes
+  db:migrate --seed       Migrations + seeders
+  db:migrate --fresh      Dropa e recria (apenas dev)
+
+  fns:sincronizar         Coleta transferências FNS
+  portarias:sincronizar   Scraping DOU portarias
+  aps:sincronizar         Sincroniza repasses APS (e-Gestor)
+  cnes:sincronizar        Sincroniza dados CNES
+  indicadores:calcular    Recalcula indicadores de saúde
+  alertas:processar       Processa e envia alertas pendentes
+
+HELP;
+}

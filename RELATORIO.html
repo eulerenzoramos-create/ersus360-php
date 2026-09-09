@@ -1,0 +1,778 @@
+<title>ERSUS360 PHP</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --navy:    #0d1b2a;
+    --accent:  #1d6fe8;
+    --accent2: #1558c0;
+    --surface: #f0f4fb;
+    --card:    #ffffff;
+    --border:  #d1ddf5;
+    --text:    #1a202c;
+    --muted:   #64748b;
+    --green:   #16a34a;
+    --amber:   #d97706;
+    --red:     #dc2626;
+    --tag-bg:  #dbeafe;
+    --tag-tx:  #1d4ed8;
+    --bg:      var(--surface);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --navy:    #0a1628;
+      --accent:  #3b82f6;
+      --accent2: #60a5fa;
+      --surface: #111827;
+      --card:    #1e293b;
+      --border:  #2d3f5e;
+      --text:    #e2e8f0;
+      --muted:   #94a3b8;
+      --green:   #22c55e;
+      --amber:   #f59e0b;
+      --red:     #f87171;
+      --tag-bg:  #1e3a5f;
+      --tag-tx:  #93c5fd;
+      --bg:      var(--surface);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --navy:    #0a1628;
+    --accent:  #3b82f6;
+    --accent2: #60a5fa;
+    --surface: #111827;
+    --card:    #1e293b;
+    --border:  #2d3f5e;
+    --text:    #e2e8f0;
+    --muted:   #94a3b8;
+    --green:   #22c55e;
+    --amber:   #f59e0b;
+    --red:     #f87171;
+    --tag-bg:  #1e3a5f;
+    --tag-tx:  #93c5fd;
+    --bg:      var(--surface);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── Top bar ─────────────────────────────────────────── */
+  .topbar {
+    background: var(--navy);
+    color: #fff;
+    padding: 0 32px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  .topbar-logo span { color: #60a5fa; }
+  .topbar-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    border-left: 1px solid #334155;
+    padding-left: 16px;
+  }
+  .topbar-badge {
+    margin-left: auto;
+    background: #1d6fe8;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Layout ──────────────────────────────────────────── */
+  .layout {
+    display: flex;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* ── Sidebar ─────────────────────────────────────────── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: sticky;
+    top: 56px;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    padding: 0 16px;
+    margin-bottom: 4px;
+  }
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 8px 4px;
+  }
+  .sidebar a {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    transition: background .15s;
+  }
+  .sidebar a:hover { background: var(--surface); color: var(--accent); }
+
+  /* ── Main ────────────────────────────────────────────── */
+  .main {
+    flex: 1;
+    padding: 40px 48px;
+    max-width: 960px;
+  }
+
+  /* ── Sections ────────────────────────────────────────── */
+  section { margin-bottom: 56px; }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 4px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title .icon { font-size: 20px; }
+  .section-sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 24px;
+  }
+
+  /* ── Hero ────────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, var(--navy) 0%, #1a3a6e 100%);
+    border-radius: 12px;
+    padding: 36px 40px;
+    color: #fff;
+    margin-bottom: 48px;
+  }
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0 0 6px;
+    letter-spacing: -1px;
+  }
+  .hero h1 span { color: #60a5fa; }
+  .hero p {
+    margin: 0 0 20px;
+    color: #cbd5e1;
+    font-size: 14px;
+    max-width: 560px;
+  }
+  .hero-stats {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .hero-stat { display: flex; flex-direction: column; gap: 2px; }
+  .hero-stat-n {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #60a5fa;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-stat-l { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; }
+
+  /* ── Cards grid ──────────────────────────────────────── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .card-icon {
+    width: 36px; height: 36px;
+    background: var(--tag-bg);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .card-sub { font-size: 12px; color: var(--muted); }
+  .card ul {
+    margin: 0; padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .card ul li {
+    font-size: 12px;
+    color: var(--muted);
+    padding-left: 12px;
+    position: relative;
+  }
+  .card ul li::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+
+  /* ── File tree ───────────────────────────────────────── */
+  .filetree {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .filetree-head {
+    background: var(--navy);
+    color: #94a3b8;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .filetree-body {
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+  .ft-dir { color: var(--accent); font-weight: 500; }
+  .ft-new { color: var(--green); }
+  .ft-file { color: var(--text); }
+  .ft-info { color: var(--muted); font-size: 11px; }
+
+  /* ── Table ───────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    background: var(--navy);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    text-align: left;
+  }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--surface); }
+
+  /* ── Badges ──────────────────────────────────────────── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+  }
+  .badge-blue  { background: var(--tag-bg);   color: var(--tag-tx); }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-red   { background: #fee2e2; color: #991b1b; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .badge-green { background: #14532d; color: #86efac; }
+    :root:not([data-theme="light"]) .badge-amber { background: #78350f; color: #fcd34d; }
+    :root:not([data-theme="light"]) .badge-red   { background: #7f1d1d; color: #fca5a5; }
+  }
+  :root[data-theme="dark"] .badge-green { background: #14532d; color: #86efac; }
+  :root[data-theme="dark"] .badge-amber { background: #78350f; color: #fcd34d; }
+  :root[data-theme="dark"] .badge-red   { background: #7f1d1d; color: #fca5a5; }
+
+  /* ── Code inline ─────────────────────────────────────── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  /* ── Step list ───────────────────────────────────────── */
+  .steps { display: flex; flex-direction: column; gap: 12px; }
+  .step {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .step-n {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-body { flex: 1; }
+  .step-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .step-desc { font-size: 13px; color: var(--muted); }
+
+  /* ── Alert box ───────────────────────────────────────── */
+  .alert {
+    border-left: 4px solid var(--amber);
+    background: var(--card);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .alert strong { color: var(--amber); }
+
+  /* ── Env table ───────────────────────────────────────── */
+  .env-row { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { padding: 24px 20px; }
+    .hero { padding: 24px; }
+    .hero h1 { font-size: 24px; }
+    .hero-stats { gap: 20px; }
+  }
+</style>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-logo">ERSUS<span>360</span></div>
+  <div class="topbar-sub">SMS Apuí/AM — Reescrita PHP 8.4</div>
+  <div class="topbar-badge">v2.0 · Set/2026</div>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Documento</div>
+      <a href="#visao">Visão Geral</a>
+      <a href="#arquitetura">Arquitetura</a>
+      <a href="#inventario">Inventário</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Módulos</div>
+      <a href="#modulos">Todos os módulos</a>
+      <a href="#fns">FNS</a>
+      <a href="#folha">Folha</a>
+      <a href="#portarias">Portarias</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Banco</div>
+      <a href="#migrations">Migrations (15)</a>
+      <a href="#seeders">Seeders</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Deploy</div>
+      <a href="#envvars">Variáveis de Ambiente</a>
+      <a href="#deploy">Passos Railway</a>
+      <a href="#migracao">Migração de Dados</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Testes</div>
+      <a href="#testes">PHPUnit</a>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HERO -->
+    <div class="hero">
+      <h1>ERSUS<span>360</span> · PHP 8.4</h1>
+      <p>Reescrita completa do sistema de gestão em saúde da SMS Apuí/AM em PHP 8.4 + MySQL 8.4 LTS. Substitui FastAPI + SQLite com arquitetura layered, persistência confiável e deploy via Railway.</p>
+      <div class="hero-stats">
+        <div class="hero-stat"><span class="hero-stat-n">67</span><span class="hero-stat-l">Arquivos criados</span></div>
+        <div class="hero-stat"><span class="hero-stat-n">9</span><span class="hero-stat-l">Módulos</span></div>
+        <div class="hero-stat"><span class="hero-stat-n">15</span><span class="hero-stat-l">Migrations SQL</span></div>
+        <div class="hero-stat"><span class="hero-stat-n">18</span><span class="hero-stat-l">Perfis de acesso</span></div>
+        <div class="hero-stat"><span class="hero-stat-n">4</span><span class="hero-stat-l">Integrações</span></div>
+      </div>
+    </div>
+
+    <!-- VISÃO GERAL -->
+    <section id="visao">
+      <div class="section-title"><span class="icon">🏗</span> Visão Geral</div>
+      <p class="section-sub">Stack técnica e decisões de arquitetura</p>
+      <div class="cards">
+        <div class="card">
+          <div class="card-head"><div class="card-icon">⚙️</div><div><div class="card-title">Runtime</div><div class="card-sub">Backend</div></div></div>
+          <ul>
+            <li>PHP 8.4 (typed properties, match, fibers)</li>
+            <li>MySQL 8.4 LTS (utf8mb4, DECIMAL(14,2))</li>
+            <li>PDO com prepared statements reais</li>
+            <li>PSR-4 autoload + PSR-12 code style</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-icon">🔐</div><div><div class="card-title">Segurança</div><div class="card-sub">Auth + Dados</div></div></div>
+          <ul>
+            <li>JWT HS256 via firebase/php-jwt</li>
+            <li>bcrypt cost=12 (password_hash)</li>
+            <li>Isolamento por município por perfil</li>
+            <li>Credenciais apenas em Railway env vars</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-icon">📦</div><div><div class="card-title">Dependências</div><div class="card-sub">composer.json</div></div></div>
+          <ul>
+            <li>firebase/php-jwt ^6.10</li>
+            <li>guzzlehttp/guzzle ^7.9</li>
+            <li>monolog/monolog ^3.7</li>
+            <li>vlucas/phpdotenv ^5.6</li>
+            <li>dompdf, phpspreadsheet</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-icon">🚀</div><div><div class="card-title">Deploy</div><div class="card-sub">Infraestrutura</div></div></div>
+          <ul>
+            <li>Dockerfile (PHP 8.4-fpm-alpine)</li>
+            <li>nginx + supervisord</li>
+            <li>Cron jobs via supervisord loops</li>
+            <li>Railway (backend) · MySQL gerenciado</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARQUITETURA -->
+    <section id="arquitetura">
+      <div class="section-title"><span class="icon">🗂</span> Arquitetura</div>
+      <p class="section-sub">Camadas e responsabilidades</p>
+      <div class="filetree">
+        <div class="filetree-head">📁 ersus360-php/ · estrutura de camadas</div>
+        <div class="filetree-body">
+<span class="ft-dir">core/</span>           <span class="ft-info">← infraestrutura: App, Router, Database, Container, Request, Response, Logger</span>
+<span class="ft-dir">app/Controllers/</span> <span class="ft-info">← recebem HTTP, delegam para Services/Repositories</span>
+<span class="ft-dir">app/Services/</span>    <span class="ft-info">← lógica de negócio (FnsService, FolhaService, PortariasService...)</span>
+<span class="ft-dir">app/Repositories/</span><span class="ft-info">← SQL via PDO, nunca expõem senha_hash ao caller</span>
+<span class="ft-dir">app/Integrations/</span><span class="ft-info">← clientes HTTP externos (ConsultaFns, ApiFns, DOU, Resend)</span>
+<span class="ft-dir">app/Middleware/</span>  <span class="ft-info">← AuthMiddleware (JWT) + PermissaoMiddleware (módulo)</span>
+<span class="ft-dir">app/Jobs/</span>        <span class="ft-info">← cron jobs CLI: FnsSync, PortariasSync</span>
+<span class="ft-dir">app/Exceptions/</span>  <span class="ft-info">← HttpException (status + extra + toArray)</span>
+<span class="ft-dir">routes/api.php</span>   <span class="ft-info">← registro de todas as rotas com grupos e middleware</span>
+<span class="ft-dir">database/</span>        <span class="ft-info">← migrations SQL (001–015), seeders, migrate.php runner</span>
+<span class="ft-dir">tests/Unit/</span>      <span class="ft-info">← PHPUnit: JwtServiceTest, PermissaoServiceTest, AuthServiceTest</span>
+<span class="ft-dir">docker/</span>          <span class="ft-info">← nginx.conf, supervisord.conf</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- INVENTÁRIO COMPLETO -->
+    <section id="inventario">
+      <div class="section-title"><span class="icon">📋</span> Inventário de Arquivos</div>
+      <p class="section-sub">67 arquivos criados nesta sessão</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Camada</th><th>Arquivo</th><th>Função</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="badge badge-blue">Core</span></td><td><code>core/App.php</code></td><td>Bootstrap: env, IoC, CORS, error handling</td></tr>
+            <tr><td><span class="badge badge-blue">Core</span></td><td><code>core/Database.php</code></td><td>PDO wrapper — prepared statements, transaction, fromEnv()</td></tr>
+            <tr><td><span class="badge badge-blue">Core</span></td><td><code>core/Router.php</code></td><td>Roteador com group(), params {id}, middleware chain</td></tr>
+            <tr><td><span class="badge badge-blue">Core</span></td><td><code>core/Request.php</code></td><td>Wraps superglobals — bearerToken, input, user, municipioId</td></tr>
+            <tr><td><span class="badge badge-blue">Core</span></td><td><code>core/Response.php</code></td><td>json, error, paginated, created, noContent factories</td></tr>
+            <tr><td><span class="badge badge-blue">Core</span></td><td><code>core/Container.php</code></td><td>IoC: singleton + reflection auto-wiring</td></tr>
+            <tr><td><span class="badge badge-blue">Core</span></td><td><code>core/LoggerFactory.php</code></td><td>Monolog JSON para stdout (Railway logs)</td></tr>
+            <tr><td><span class="badge badge-green">Service</span></td><td><code>app/Services/JwtService.php</code></td><td>gerar + validar JWT HS256</td></tr>
+            <tr><td><span class="badge badge-green">Service</span></td><td><code>app/Services/AuthService.php</code></td><td>login, bootstrap admin, hashSenha, trocarSenha</td></tr>
+            <tr><td><span class="badge badge-green">Service</span></td><td><code>app/Services/AuditService.php</code></td><td>log imutável, resolve IP, nunca lança exceção</td></tr>
+            <tr><td><span class="badge badge-green">Service</span></td><td><code>app/Services/PermissaoService.php</code></td><td>18 perfis, exigir, pode, isAssessoria, exigirMunicipio</td></tr>
+            <tr><td><span class="badge badge-green">Service</span></td><td><code>app/Services/FnsService.php</code></td><td>sincronizarScraping, sincronizarApi, gerarChave SHA-256</td></tr>
+            <tr><td><span class="badge badge-green">Service</span></td><td><code>app/Services/FolhaService.php</code></td><td>listagem com presença, adicionarFuncionario, importarLegacy</td></tr>
+            <tr><td><span class="badge badge-green">Service</span></td><td><code>app/Services/PortariasService.php</code></td><td>sincronizar DOU, notificar via Resend</td></tr>
+            <tr><td><span class="badge badge-amber">Middleware</span></td><td><code>app/Middleware/AuthMiddleware.php</code></td><td>Extrai Bearer JWT, setUser no Request</td></tr>
+            <tr><td><span class="badge badge-amber">Middleware</span></td><td><code>app/Middleware/PermissaoMiddleware.php</code></td><td>exigir(perfil, modulo) — fábrica PermissaoMiddleware::para()</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>Auth/LoginController.php</code></td><td>login, logout, renovar, trocarSenha</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>Auth/UsuarioController.php</code></td><td>CRUD usuários, 18 perfis, isolamento município</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>MunicipioController.php</code></td><td>listagem, dashboard com resumo financeiro</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>FnsController.php</code></td><td>listagem, resumo, gráfico, sincronizar, exportar CSV</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>FolhaController.php</code></td><td>funcionários + presença + importar-legacy + exportar CSV</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>PortariasController.php</code></td><td>listagem DOU, sincronizar, notificar, marcarLida</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>ApsController.php</code></td><td>repasses e-Gestor, resumo, competências, exportar</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>InvestSusController.php</code></td><td>CRUD emendas, resumo por fase, validação de tipo/fase</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>AlertasController.php</code></td><td>listagem, marcarLido, marcarTodosLidos</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>IndicadoresController.php</code></td><td>indicadores com situação, dashboard de críticos</td></tr>
+            <tr><td><span class="badge badge-red">Controller</span></td><td><code>CnesController.php</code></td><td>estabelecimentos CNES, equipes, profissionais</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MÓDULOS -->
+    <section id="modulos">
+      <div class="section-title"><span class="icon">🧩</span> Módulos Implementados</div>
+      <p class="section-sub">Cobertura de controllers, services, repositories e integrações</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Módulo</th><th>Controller</th><th>Service</th><th>Repository</th><th>Integração</th></tr>
+          </thead>
+          <tbody>
+            <tr id="fns"><td><strong>FNS</strong></td><td>✅</td><td>✅ FnsService</td><td>✅ FnsRepository</td><td>✅ ConsultaFns + ApiFns</td></tr>
+            <tr id="folha"><td><strong>Folha</strong></td><td>✅</td><td>✅ FolhaService</td><td>✅ FolhaRepository</td><td>—</td></tr>
+            <tr id="portarias"><td><strong>Portarias</strong></td><td>✅</td><td>✅ PortariasService</td><td>✅ PortariasRepository</td><td>✅ DOU + Resend</td></tr>
+            <tr><td><strong>APS</strong></td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td><strong>InvestSUS</strong></td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td><strong>Alertas</strong></td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td><strong>Indicadores</strong></td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td><strong>CNES</strong></td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td><strong>Municípios</strong></td><td>✅</td><td>—</td><td>✅ MunicipioRepository</td><td>—</td></tr>
+            <tr><td><strong>Usuários</strong></td><td>✅</td><td>—</td><td>✅ UsuarioRepository</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MIGRATIONS -->
+    <section id="migrations">
+      <div class="section-title"><span class="icon">🗄</span> Migrations MySQL (15)</div>
+      <p class="section-sub">Aplicar com: <code>php database/migrate.php --seed</code></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Arquivo</th><th>Tabela</th><th>Destaque</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>001</td><td><code>create_municipios</code></td><td>municipios</td><td>IBGE 1300144 (Apuí/AM)</td></tr>
+            <tr><td>002</td><td><code>create_usuarios</code></td><td>usuarios</td><td>ENUM com 18 perfis, bcrypt hash</td></tr>
+            <tr><td>003</td><td><code>create_audit_log</code></td><td>audit_log</td><td>Apenas INSERT — nunca deletar</td></tr>
+            <tr><td>004</td><td><code>create_transferencias_fns</code></td><td>transferencias_fns</td><td>chave_unica CHAR(64) SHA-256</td></tr>
+            <tr><td>005</td><td><code>create_coleta_fns</code></td><td>coleta_fns</td><td>Histórico de execuções do job</td></tr>
+            <tr><td>006</td><td><code>create_repasses_aps</code></td><td>repasses_aps</td><td>valor_total GENERATED ALWAYS</td></tr>
+            <tr><td>007</td><td><code>create_emendas</code></td><td>emendas</td><td>4 tipos × 6 fases — ENUM</td></tr>
+            <tr><td>008</td><td><code>create_indicadores</code></td><td>indicadores</td><td>UNIQUE (municipio, competencia, codigo)</td></tr>
+            <tr><td>009</td><td><code>create_alertas</code></td><td>alertas</td><td>7 tipos de alerta</td></tr>
+            <tr><td>010</td><td><code>create_portarias</code></td><td>portarias</td><td>palavras_chave JSON, relevancia IA</td></tr>
+            <tr><td>011</td><td><code>create_contas_bancarias</code></td><td>contas_bancarias</td><td>Contas FNS por município</td></tr>
+            <tr><td>012</td><td><code>create_cnes_estabelecimentos</code></td><td>cnes_estabelecimentos</td><td>UNIQUE cnes — geocoordenadas</td></tr>
+            <tr><td>013</td><td><code>create_folha_presenca</code></td><td>folha_presenca</td><td><strong>Substitui /tmp Railway</strong> — UNIQUE (mid, mes, matricula)</td></tr>
+            <tr><td>014</td><td><code>create_job_execucoes</code></td><td>job_execucoes</td><td>Log de cron jobs com duração_ms</td></tr>
+            <tr><td>015</td><td><code>create_configuracoes</code></td><td>configuracoes</td><td>Chave-valor JSON por município</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ENV VARS -->
+    <section id="envvars">
+      <div class="section-title"><span class="icon">🔑</span> Variáveis de Ambiente</div>
+      <p class="section-sub">Configurar no Railway — NUNCA hardcoded no código ou Git</p>
+
+      <div class="alert"><strong>⚠ Segurança:</strong> Nenhuma credencial, token ou certificado deve estar no repositório. Todos os valores abaixo são configurados exclusivamente via Railway Environment Variables.</div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Variável</th><th>Obrigatória</th><th>Descrição</th></tr>
+          </thead>
+          <tbody>
+            <tr class="env-row"><td><code>DB_HOST</code></td><td><span class="badge badge-red">Sim</span></td><td>Host MySQL Railway</td></tr>
+            <tr class="env-row"><td><code>DB_PORT</code></td><td><span class="badge badge-red">Sim</span></td><td>Porta MySQL (padrão 3306)</td></tr>
+            <tr class="env-row"><td><code>DB_NAME</code></td><td><span class="badge badge-red">Sim</span></td><td>Nome do banco</td></tr>
+            <tr class="env-row"><td><code>DB_USER</code></td><td><span class="badge badge-red">Sim</span></td><td>Usuário MySQL</td></tr>
+            <tr class="env-row"><td><code>DB_PASS</code></td><td><span class="badge badge-red">Sim</span></td><td>Senha MySQL</td></tr>
+            <tr class="env-row"><td><code>JWT_SECRET</code></td><td><span class="badge badge-red">Sim</span></td><td>Segredo JWT — mínimo 32 chars aleatórios</td></tr>
+            <tr class="env-row"><td><code>APP_KEY</code></td><td><span class="badge badge-red">Sim</span></td><td>Chave da aplicação</td></tr>
+            <tr class="env-row"><td><code>ADMIN_EMAIL</code></td><td><span class="badge badge-red">Sim</span></td><td>E-mail do admin bootstrap (euler)</td></tr>
+            <tr class="env-row"><td><code>ADMIN_SENHA</code></td><td><span class="badge badge-red">Sim</span></td><td>Senha do admin bootstrap</td></tr>
+            <tr class="env-row"><td><code>RESEND_API_KEY</code></td><td><span class="badge badge-red">Sim</span></td><td>Chave API Resend (re_...)</td></tr>
+            <tr class="env-row"><td><code>EMAIL_FROM</code></td><td><span class="badge badge-amber">Rec.</span></td><td>Remetente (onboarding@resend.dev)</td></tr>
+            <tr class="env-row"><td><code>CORS_ORIGINS</code></td><td><span class="badge badge-amber">Rec.</span></td><td>URLs do frontend separadas por vírgula</td></tr>
+            <tr class="env-row"><td><code>ESUS_USUARIO</code></td><td><span class="badge badge-amber">Integ.</span></td><td>Usuário e-SUS APS</td></tr>
+            <tr class="env-row"><td><code>ESUS_SENHA</code></td><td><span class="badge badge-amber">Integ.</span></td><td>Senha e-SUS APS</td></tr>
+            <tr class="env-row"><td><code>FOLHA_REFERENCIA_PATH</code></td><td><span class="badge badge-blue">Opt.</span></td><td>Caminho do folha_referencia.json</td></tr>
+            <tr class="env-row"><td><code>APP_DEBUG</code></td><td><span class="badge badge-blue">Opt.</span></td><td>true apenas em dev — false em produção</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DEPLOY -->
+    <section id="deploy">
+      <div class="section-title"><span class="icon">🚢</span> Passos para Deploy no Railway</div>
+      <p class="section-sub">Sequência de comandos e ações</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <div class="step-title">Instalar dependências PHP</div>
+            <div class="step-desc"><code>cd ersus360-php &amp;&amp; composer install</code></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <div class="step-title">Configurar .env local</div>
+            <div class="step-desc"><code>copy .env.example .env</code> e preencher DB_*, JWT_SECRET, APP_KEY</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <div class="step-title">Criar banco MySQL no Railway</div>
+            <div class="step-desc">Railway Dashboard → New Service → MySQL 8.x → anotar host, porta, user, pass, dbname</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">4</div>
+          <div class="step-body">
+            <div class="step-title">Rodar migrations + seeder</div>
+            <div class="step-desc"><code>php database/migrate.php --seed</code> — cria as 15 tabelas e insere Apuí/AM</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">5</div>
+          <div class="step-body">
+            <div class="step-title">Deploy no Railway (Docker)</div>
+            <div class="step-desc">Railway detecta o Dockerfile automaticamente. Configurar as env vars no painel e fazer deploy.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">6</div>
+          <div class="step-body">
+            <div class="step-title">Testar health check</div>
+            <div class="step-desc"><code>GET https://seu-app.railway.app/api/health</code> → deve retornar <code>{"status":"ok"}</code></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MIGRAÇÃO DE DADOS -->
+    <section id="migracao">
+      <div class="section-title"><span class="icon">🔄</span> Migração dos Dados do Sistema Python</div>
+      <p class="section-sub">Sequência crítica — antes de desligar o sistema atual</p>
+
+      <div class="alert"><strong>⚠ Urgente:</strong> O sistema Python armazena presença em <code>/tmp</code> que é apagado a cada redeploy Railway. Exportar antes de qualquer novo deploy.</div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <div class="step-title">Exportar /tmp do Railway (Python)</div>
+            <div class="step-desc">Railway console → <code>cat /tmp/ersus_folha_presenca.json</code> → copiar conteúdo</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <div class="step-title">Copiar folha_referencia.json</div>
+            <div class="step-desc">Copiar <code>backend/data/folha_referencia.json</code> para <code>ersus360-php/storage/data/</code></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <div class="step-title">Importar presença via API</div>
+            <div class="step-desc"><code>POST /api/folha/importar-legacy</code> com o JSON exportado → migra para banco MySQL</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">4</div>
+          <div class="step-body">
+            <div class="step-title">Verificar integridade dos dados FNS</div>
+            <div class="step-desc">As <code>chave_unica</code> SHA-256 são idênticas ao Python — nenhum duplicado será inserido</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TESTES -->
+    <section id="testes">
+      <div class="section-title"><span class="icon">🧪</span> Testes PHPUnit</div>
+      <p class="section-sub">Executar com: <code>vendor/bin/phpunit --colors</code></p>
+      <div class="cards">
+        <div class="card">
+          <div class="card-head"><div class="card-icon">🔑</div><div><div class="card-title">JwtServiceTest</div><div class="card-sub">3 testes</div></div></div>
+          <ul>
+            <li>Gerar + validar token com sucesso</li>
+            <li>Token inválido → 401</li>
+            <li>Token adulterado → 401</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-icon">🛡️</div><div><div class="card-title">PermissaoServiceTest</div><div class="card-sub">7 testes</div></div></div>
+          <ul>
+            <li>superadmin acessa todos os módulos</li>
+            <li>consulta não acessa usuários</li>
+            <li>exigir lança 403 sem permissão</li>
+            <li>isAssessoria — 3 perfis + 9 municipais</li>
+            <li>isolamento de município</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-icon">🔒</div><div><div class="card-title">AuthServiceTest</div><div class="card-sub">4 testes</div></div></div>
+          <ul>
+            <li>hashSenha retorna bcrypt $2y$</li>
+            <li>validarForcaSenha aceita/rejeita</li>
+            <li>login bootstrap retorna token</li>
+            <li>senha errada → 401</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <div style="border-top:1px solid var(--border);padding-top:24px;color:var(--muted);font-size:12px;text-align:center;">
+      ERSUS360 v2.0 · SMS Apuí/AM · PHP 8.4 + MySQL 8.4 · Gerado em setembro/2026
+    </div>
+
+  </main>
+</div>

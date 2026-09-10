@@ -104,6 +104,8 @@ final class App
 
     private function loadRoutes(): void
     {
+        $router    = $this->router;
+        $container = $this->container;
         require $this->rootPath . '/routes/api.php';
     }
 

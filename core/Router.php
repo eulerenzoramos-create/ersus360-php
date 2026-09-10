@@ -11,7 +11,7 @@ use Ersus360\Exceptions\HttpException;
  */
 final class Router
 {
-    /** @var array<string, array<string, array{handler: array, middleware: string[]}>> */
+    /** @var array<string, array<string, array{handler: callable, middleware: string[]}>> */
     private array $routes = [];
 
     /** @var string[] */
@@ -22,27 +22,27 @@ final class Router
 
     // ── Registro de rotas ─────────────────────────────────────
 
-    public function get(string $path, array $handler, array $middleware = []): self
+    public function get(string $path, callable $handler, array $middleware = []): self
     {
         return $this->add('GET', $path, $handler, $middleware);
     }
 
-    public function post(string $path, array $handler, array $middleware = []): self
+    public function post(string $path, callable $handler, array $middleware = []): self
     {
         return $this->add('POST', $path, $handler, $middleware);
     }
 
-    public function put(string $path, array $handler, array $middleware = []): self
+    public function put(string $path, callable $handler, array $middleware = []): self
     {
         return $this->add('PUT', $path, $handler, $middleware);
     }
 
-    public function patch(string $path, array $handler, array $middleware = []): self
+    public function patch(string $path, callable $handler, array $middleware = []): self
     {
         return $this->add('PATCH', $path, $handler, $middleware);
     }
 
-    public function delete(string $path, array $handler, array $middleware = []): self
+    public function delete(string $path, callable $handler, array $middleware = []): self
     {
         return $this->add('DELETE', $path, $handler, $middleware);
     }
@@ -86,7 +86,7 @@ final class Router
 
     // ── Interno ──────────────────────────────────────────────
 
-    private function add(string $method, string $path, array $handler, array $middleware): self
+    private function add(string $method, string $path, callable $handler, array $middleware): self
     {
         $full = $this->groupPrefix . $path;
         $this->routes[$method][$full] = [
@@ -113,16 +113,13 @@ final class Router
     }
 
     /**
-     * Executa cadeia de middleware → controller.
+     * Executa cadeia de middleware → handler (closure ou [class, method]).
      * @param string[] $middleware
-     * @param array{0: class-string, 1: string} $handler
      */
-    private function runMiddleware(array $middleware, array $handler, Request $request): Response
+    private function runMiddleware(array $middleware, callable $handler, Request $request): Response
     {
         $final = function (Request $req) use ($handler): Response {
-            [$class, $method] = $handler;
-            $controller = $this->container->get($class);
-            return $controller->$method($req);
+            return $handler($req);
         };
 
         $chain = array_reduce(

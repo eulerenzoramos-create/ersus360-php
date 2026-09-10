@@ -33,7 +33,7 @@ require '/var/www/ersus360/vendor/autoload.php';
 \$existe = \$pdo->prepare('SELECT id FROM usuarios WHERE email = ?');
 \$existe->execute([\$email]);
 if (!\$existe->fetch()) {
-    \$muni = \$pdo->query('SELECT id FROM municipios WHERE ibge = \'1300144\' LIMIT 1')->fetchColumn();
+    \$muni = \$pdo->query('SELECT id FROM municipios WHERE codigo_ibge = \'1300144\' LIMIT 1')->fetchColumn();
     \$hash = password_hash('Ersus@2026', PASSWORD_BCRYPT, ['cost' => 12]);
     \$stmt = \$pdo->prepare('INSERT INTO usuarios (municipio_id, nome, email, senha_hash, perfil, ativo) VALUES (?,?,?,?,?,1)');
     \$stmt->execute([\$muni, 'Administrador', \$email, \$hash, 'superadmin']);

@@ -9,5 +9,5 @@ SELECT
     'superadmin',
     1
 FROM municipios m
-WHERE m.ibge = '1300144'
+WHERE m.codigo_ibge = '1300144'
 LIMIT 1;

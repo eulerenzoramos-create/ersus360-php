@@ -27,6 +27,15 @@ final class Container
     }
 
     /**
+     * Alias de get() — resolve sempre uma nova instância (sem cache de singleton).
+     * @param class-string $abstract
+     */
+    public function make(string $abstract): object
+    {
+        return $this->resolve($abstract);
+    }
+
+    /**
      * Resolve uma dependência.
      * Tenta binding registrado primeiro; depois reflection auto-wiring.
      * @param class-string $abstract

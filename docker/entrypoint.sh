@@ -21,5 +21,27 @@ done
 echo "==> MySQL conectado. Rodando migrações..."
 php /var/www/ersus360/artisan db:migrate --seed
 
+echo "==> Criando admin inicial (se não existir)..."
+php -r "
+require '/var/www/ersus360/vendor/autoload.php';
+\$pdo = new PDO(
+    'mysql:host='.getenv('DB_HOST').';port='.(getenv('DB_PORT')?:'3306').';dbname='.getenv('DB_NAME').';charset=utf8mb4',
+    getenv('DB_USER'), getenv('DB_PASS'),
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+);
+\$email = 'eulerenzoramos@gmail.com';
+\$existe = \$pdo->prepare('SELECT id FROM usuarios WHERE email = ?');
+\$existe->execute([\$email]);
+if (!\$existe->fetch()) {
+    \$muni = \$pdo->query('SELECT id FROM municipios WHERE ibge = \'1300144\' LIMIT 1')->fetchColumn();
+    \$hash = password_hash('Ersus@2026', PASSWORD_BCRYPT, ['cost' => 12]);
+    \$stmt = \$pdo->prepare('INSERT INTO usuarios (municipio_id, nome, email, senha_hash, perfil, ativo) VALUES (?,?,?,?,?,1)');
+    \$stmt->execute([\$muni, 'Administrador', \$email, \$hash, 'superadmin']);
+    echo 'Admin criado: '.\$email.PHP_EOL;
+} else {
+    echo 'Admin ja existe.'.PHP_EOL;
+}
+"
+
 echo "==> Migrações concluídas. Iniciando supervisor..."
 exec /usr/bin/supervisord -c /etc/supervisord.conf

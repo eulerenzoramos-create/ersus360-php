@@ -9,10 +9,13 @@ const USER_KEY  = 'ersus_user';
 // ── Auth helpers ─────────────────────────────────────────
 const Auth = {
   token: () => localStorage.getItem(TOKEN_KEY),
-  user:  () => JSON.parse(localStorage.getItem(USER_KEY) || 'null'),
+  user:  () => {
+    try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); }
+    catch { localStorage.removeItem(USER_KEY); return null; }
+  },
   save:  (token, user) => {
     localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    if (user != null) localStorage.setItem(USER_KEY, JSON.stringify(user));
   },
   clear: () => {
     localStorage.removeItem(TOKEN_KEY);

@@ -53,7 +53,7 @@ final class App
     private function loadEnv(): void
     {
         $dotenv = Dotenv::createImmutable($this->rootPath);
-        $dotenv->load();
+        $dotenv->safeLoad();
         $dotenv->required([
             'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS',
             'JWT_SECRET', 'APP_KEY',

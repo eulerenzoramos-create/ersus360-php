@@ -18,8 +18,10 @@ require ROOT_PATH . '/vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
-$dotenv = Dotenv::createImmutable(ROOT_PATH);
-$dotenv->load();
+if (file_exists(ROOT_PATH . '/.env')) {
+    $dotenv = Dotenv::createImmutable(ROOT_PATH);
+    $dotenv->load();
+}
 
 $dsn = sprintf(
     'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',

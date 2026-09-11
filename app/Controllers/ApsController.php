@@ -116,23 +116,6 @@ final class ApsController
 
     public function diagnostico(Request $request): Response
     {
-        $usuario = $_ENV['ESUS_USUARIO'] ?? '';
-        $senha   = $_ENV['ESUS_SENHA']   ?? '';
-
-        if (!$usuario || !$senha) {
-            return Response::json([
-                'erro'    => 'Credenciais e-Gestor não configuradas.',
-                'detalhes'=> 'Configure as variáveis de ambiente ESUS_USUARIO e ESUS_SENHA no painel do Railway.',
-                'passos'  => [
-                    'Acesse railway.app → seu projeto → Variables',
-                    'Adicione ESUS_USUARIO = seu login do e-Gestor APS',
-                    'Adicione ESUS_SENHA = sua senha do e-Gestor APS',
-                    'Faça um novo deploy e tente novamente',
-                ],
-            ], 503);
-        }
-
-        // Busca o código IBGE do município autenticado
         $municipioId = $request->municipioId();
         $municipio   = $this->db->fetchOne(
             'SELECT codigo_ibge FROM municipios WHERE id = :id LIMIT 1',
@@ -147,15 +130,21 @@ final class ApsController
         $competencia = $request->query('competencia') ?: date('Y-m', strtotime('-1 month'));
 
         try {
-            $service    = new EGestorService($usuario, $senha, $ibge);
+            $service     = EGestorService::fromEnv($ibge);
             $diagnostico = $service->diagnosticoEmulti($competencia);
             return Response::json($diagnostico);
         } catch (HttpException $e) {
+            $code = ($e->getCode() >= 400 && $e->getCode() < 600) ? $e->getCode() : 502;
             return Response::json([
                 'erro'    => $e->getMessage(),
-                'codigo'  => $e->getCode(),
-                'detalhes'=> 'Falha ao consultar o e-Gestor APS. Verifique as credenciais e tente novamente.',
-            ], $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 502);
+                'codigo'  => $code,
+                'passos'  => [
+                    'Acesse railway.app → seu projeto → Variables',
+                    'Adicione EGESTOR_TOKEN com o token da API do e-Gestor APS',
+                    '  — OU — adicione ESUS_USUARIO e ESUS_SENHA (login/senha do e-Gestor)',
+                    'Faça um novo deploy e tente novamente',
+                ],
+            ], $code);
         }
     }
 

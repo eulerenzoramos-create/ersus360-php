@@ -32,32 +32,62 @@ final class EGestorService
     ];
 
     public function __construct(
-        private readonly string $usuario,
-        private readonly string $senha,
         private readonly string $ibge,
+        private readonly string $token   = '',
+        private readonly string $usuario = '',
+        private readonly string $senha   = '',
     ) {}
+
+    /**
+     * Instancia o serviço a partir das variáveis de ambiente disponíveis.
+     * Prioridade: EGESTOR_TOKEN > ESUS_USUARIO+ESUS_SENHA
+     */
+    public static function fromEnv(string $ibge): self
+    {
+        $token   = $_ENV['EGESTOR_TOKEN']  ?? '';
+        $usuario = $_ENV['ESUS_USUARIO']   ?? '';
+        $senha   = $_ENV['ESUS_SENHA']     ?? '';
+
+        if (!$token && (!$usuario || !$senha)) {
+            throw new HttpException(503, implode(' ', [
+                'Credenciais e-Gestor não configuradas.',
+                'Configure EGESTOR_TOKEN (ou ESUS_USUARIO + ESUS_SENHA) nas variáveis do Railway.',
+            ]));
+        }
+
+        return new self($ibge, $token, $usuario, $senha);
+    }
 
     /**
      * Busca repasse COMPLETO do e-Gestor para a competência e retorna diagnóstico eMulti.
      */
     public function diagnosticoEmulti(string $competencia): array
     {
-        $token    = $this->autenticar();
-        $repasse  = $this->buscarRepasse($token, $competencia);
+        $token   = $this->resolverToken();
+        $repasse = $this->buscarRepasse($token, $competencia);
         return $this->analisarEmulti($repasse, $competencia);
     }
 
     /**
-     * Busca o repasse APS completo do e-Gestor e salva na estrutura interna.
+     * Busca o repasse APS completo do e-Gestor.
      */
     public function buscarRepasseCompleto(string $competencia): array
     {
-        $token   = $this->autenticar();
+        $token   = $this->resolverToken();
         $repasse = $this->buscarRepasse($token, $competencia);
         return $repasse;
     }
 
     // ── Privado ──────────────────────────────────────────────
+
+    /** Retorna token já configurado ou autentica via user/senha. */
+    private function resolverToken(): string
+    {
+        if ($this->token) {
+            return $this->token;
+        }
+        return $this->autenticar();
+    }
 
     private function autenticar(): string
     {

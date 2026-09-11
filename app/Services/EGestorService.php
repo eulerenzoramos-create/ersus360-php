@@ -16,12 +16,18 @@ final class EGestorService
     private const TIMEOUT   = 30;
 
     // Componentes esperados do eMulti pela Portaria 3.493/2024
+    // Valores de referência confirmados pelo e-Gestor APS (dados reais Apuí/AM JUL/2026)
     private const EMULTI_COMPONENTES = [
-        'C'  => ['label' => 'Custeio / Implantação',         'valor_ref' => 12000.00, 'obrigatorio' => true],
-        'Q'  => ['label' => 'Qualidade',                     'valor_ref' => null,     'obrigatorio' => false],
-        'AR' => ['label' => 'Atendimento Remoto (Telessaúde)','valor_ref' => 5000.00, 'obrigatorio' => false],
-        'V'  => ['label' => 'Vínculo',                       'valor_ref' => null,     'obrigatorio' => false],
+        'C'  => ['label' => 'Custeio / Implantação',          'valor_ref' => 12000.00, 'obrigatorio' => true],
+        'Q'  => ['label' => 'Qualidade',                      'valor_ref' => 2250.00,  'obrigatorio' => false],
+        'AR' => ['label' => 'Atendimento Remoto (Telessaúde)','valor_ref' => 5000.00,  'obrigatorio' => false],
+        'V'  => ['label' => 'Vínculo',                        'valor_ref' => null,     'obrigatorio' => false],
     ];
+
+    // Valor fixo por equipe eSF (referência real: 9 equipes = R$ 270.000 → R$ 30.000/equipe incluindo F+V+Q)
+    private const ESF_VALOR_EQUIPE   = 30000.00;
+    // Valor de referência eAP (estimativa Portaria — varia por componente habilitado)
+    private const EAP_VALOR_EQUIPE   = 16000.00;
 
     // Requisitos para cada componente ausente
     private const REQUISITOS_AR = [
@@ -206,61 +212,132 @@ final class EGestorService
     {
         $issues = [];
 
-        // AR ausente
-        if (!isset($recebidos['AR'])) {
+        // ── 1. AR ausente no eMulti ──────────────────────────────────
+        if (!isset($recebidos['AR']) || ($recebidos['AR'] ?? 0) == 0) {
             $issues[] = [
                 'codigo'     => 'EMULTI_AR_AUSENTE',
                 'severidade' => 'atencao',
-                'titulo'     => 'Componente AR (Atendimento Remoto) não recebido',
-                'descricao'  => 'O e-Gestor não registra produção de telessaúde para a equipe eMulti deste município na competência analisada.',
-                'impacto'    => 'Perda potencial de R$ 5.000,00/mês por modalidade habilitada.',
+                'titulo'     => 'eMulti: Atendimento Remoto (AR) não recebido',
+                'descricao'  => 'A equipe eMulti recebe Custeio (C) e Qualidade (Q), mas o componente AR — Atendimento Remoto / Telessaúde — não está sendo pago pelo e-Gestor. '
+                              . 'Isso indica ausência de produção de teleconsultas registrada na RNDS ou modalidade não habilitada no e-Gestor.',
+                'impacto'    => 'Perda de R$ 5.000,00/mês por modalidade habilitada (podendo ser mais de uma).',
                 'requisitos' => self::REQUISITOS_AR,
                 'acao_url'   => 'https://egestorab.saude.gov.br',
                 'acao_label' => 'Verificar no e-Gestor APS',
             ];
         }
 
-        // eAP com teto > 0 mas sem equipes pagas
-        $eapTeto  = (int) ($repasse['grupos']['C']['teto']    ?? $repasse['eap']['teto']    ?? 0);
-        $eapPagas = (int) ($repasse['grupos']['C']['qtdPagas'] ?? $repasse['eap']['qtdPagas'] ?? 0);
-        if ($eapTeto > 0 && $eapPagas === 0) {
+        // ── 2. Vínculo ausente no eMulti ─────────────────────────────
+        if (!isset($recebidos['V']) || ($recebidos['V'] ?? 0) == 0) {
             $issues[] = [
-                'codigo'     => 'EAP_SEM_EQUIPES_PAGAS',
-                'severidade' => 'critico',
-                'titulo'     => "eAP: teto de {$eapTeto} equipes mas 0 pagas",
-                'descricao'  => 'O município tem teto para equipes de Atenção Primária Ampliada (eAP) mas nenhuma está sendo financiada.',
-                'impacto'    => "Possível perda de R$ " . number_format($eapTeto * 16000, 2, ',', '.') . "/mês.",
+                'codigo'     => 'EMULTI_V_AUSENTE',
+                'severidade' => 'atencao',
+                'titulo'     => 'eMulti: Componente Vínculo (V) não recebido',
+                'descricao'  => 'O componente Vínculo do eMulti não está sendo pago. Este componente exige cobertura territorial com as equipes eSF vinculadas.',
+                'impacto'    => 'Perda variável conforme avaliação de vínculo territorial.',
                 'requisitos' => [
-                    'Verificar cadastro das equipes eAP no SCNES',
-                    'Confirmar vínculo das equipes com a UBS no e-Gestor',
-                    'Validar CBO e carga horária dos profissionais',
+                    'Verificar se a equipe eMulti está formalmente vinculada às equipes eSF no e-Gestor',
+                    'Confirmar cadastro de responsabilidade territorial no CNES',
+                    'Registrar ações intersetoriais e matriciamento no e-SUS PEC',
                 ],
-                'acao_url'   => 'https://cnes.datasus.gov.br',
-                'acao_label' => 'Verificar no CNES',
+                'acao_url'   => 'https://egestorab.saude.gov.br',
+                'acao_label' => 'Ver vinculação no e-Gestor',
             ];
         }
 
-        // eMulti com teto muito acima das equipes pagas (capacidade ociosa)
-        $mTeto  = (int) ($repasse['grupos']['M']['teto']    ?? $repasse['emulti']['teto']    ?? 0);
-        $mPagas = (int) ($repasse['grupos']['M']['qtdPagas'] ?? $repasse['emulti']['qtdPagas'] ?? 0);
-        if ($mTeto > 0 && $mPagas > 0 && ($mTeto - $mPagas) >= 3) {
+        // ── 3. eAP com teto alto mas 0 equipes pagas ─────────────────
+        $eapTeto  = (int) $this->buscarCampo($repasse, ['eap.teto', 'grupos.C.teto', 'grupoC.teto']);
+        $eapPagas = (int) $this->buscarCampo($repasse, ['eap.qtdPagas', 'grupos.C.qtdPagas', 'grupoC.qtdPagas']);
+        if ($eapTeto > 0 && $eapPagas === 0) {
+            $perdaMensal = number_format($eapTeto * self::EAP_VALOR_EQUIPE, 2, ',', '.');
+            $issues[] = [
+                'codigo'     => 'EAP_SEM_EQUIPES_PAGAS',
+                'severidade' => 'critico',
+                'titulo'     => "eAP — Atenção Primária Ampliada: 0 equipes pagas de {$eapTeto} no teto",
+                'descricao'  => "O município tem teto para {$eapTeto} equipes eAP no e-Gestor, mas NENHUMA está sendo financiada. "
+                              . "Esta é a maior inconsistência financeira identificada.",
+                'impacto'    => "Perda estimada de R$ {$perdaMensal}/mês — equivalente a R$ "
+                              . number_format($eapTeto * self::EAP_VALOR_EQUIPE * 12, 2, ',', '.') . "/ano.",
+                'requisitos' => [
+                    "Verificar se as {$eapTeto} equipes eAP estão cadastradas e ativas no SCNES com CBO correto",
+                    'Confirmar vínculo das equipes com estabelecimento de saúde no e-Gestor APS',
+                    'Validar carga horária mínima dos profissionais (médico/enfermeiro) no CNES',
+                    'Se as equipes não existirem: avaliar credenciamento junto ao DAB/MS via COSEMS',
+                    'Consultar Nota Técnica DAB sobre requisitos para pagamento do eAP',
+                ],
+                'acao_url'   => 'https://cnes.datasus.gov.br',
+                'acao_label' => 'Verificar equipes no CNES',
+            ];
+        }
+
+        // ── 4. eMulti com grande capacidade ociosa ───────────────────
+        $mTeto  = (int) $this->buscarCampo($repasse, ['emulti.teto', 'grupos.M.teto', 'grupoM.teto']);
+        $mPagas = (int) $this->buscarCampo($repasse, ['emulti.qtdPagas', 'grupos.M.qtdPagas', 'grupoM.qtdPagas']);
+        if ($mTeto > 0 && $mPagas > 0 && ($mTeto - $mPagas) >= 2) {
+            $ociosas     = $mTeto - $mPagas;
+            $perdaMensal = number_format($ociosas * 14250, 2, ',', '.');
             $issues[] = [
                 'codigo'     => 'EMULTI_CAPACIDADE_OCIOSA',
                 'severidade' => 'atencao',
-                'titulo'     => "eMulti: {$mPagas} de {$mTeto} vagas utilizadas",
-                'descricao'  => "O município tem teto para {$mTeto} equipes eMulti mas somente {$mPagas} está(ão) recebendo custeio.",
-                'impacto'    => "Capacidade ociosa: " . ($mTeto - $mPagas) . " equipes não credenciadas.",
+                'titulo'     => "eMulti: {$mPagas} equipe(s) paga(s) de {$mTeto} no teto — {$ociosas} vaga(s) ociosa(s)",
+                'descricao'  => "O município tem teto para {$mTeto} equipes eMulti mas somente {$mPagas} está(ão) credenciada(s) e recebendo custeio.",
+                'impacto'    => "Capacidade ociosa de {$ociosas} equipe(s) — potencial adicional de R$ {$perdaMensal}/mês.",
                 'requisitos' => [
-                    'Avaliar ampliação das equipes eMulti junto à gestão municipal',
-                    'Verificar disponibilidade orçamentária para novos profissionais',
-                    'Solicitar credenciamento ao DAB via CONASS/COSEMS',
+                    'Avaliar ampliação das equipes eMulti junto à Secretaria Municipal de Saúde',
+                    'Verificar disponibilidade orçamentária para contratação de novos profissionais',
+                    'Solicitar credenciamento das equipes adicionais ao DAB/MS via COSEMS/AM',
+                    'Profissionais elegíveis: psicólogo, fisioterapeuta, fonoaudiólogo, assistente social, entre outros',
                 ],
                 'acao_url'   => 'https://egestorab.saude.gov.br',
                 'acao_label' => 'Ver teto no e-Gestor',
             ];
         }
 
+        // ── 5. eSF com teto acima das equipes pagas ──────────────────
+        $sfTeto  = (int) $this->buscarCampo($repasse, ['esf.teto', 'grupos.SF.teto']);
+        $sfPagas = (int) $this->buscarCampo($repasse, ['esf.qtdPagas', 'grupos.SF.qtdPagas']);
+        if ($sfTeto > 0 && $sfPagas > 0 && ($sfTeto - $sfPagas) >= 2) {
+            $ociosas = $sfTeto - $sfPagas;
+            $issues[] = [
+                'codigo'     => 'ESF_CAPACIDADE_OCIOSA',
+                'severidade' => 'atencao',
+                'titulo'     => "eSF: {$sfPagas} de {$sfTeto} equipes pagas — {$ociosas} vaga(s) ociosa(s)",
+                'descricao'  => "O município tem teto para {$sfTeto} equipes eSF mas somente {$sfPagas} estão sendo financiadas.",
+                'impacto'    => "Perda de " . number_format($ociosas * self::ESF_VALOR_EQUIPE, 2, ',', '.') . "/mês por equipe não credenciada.",
+                'requisitos' => [
+                    'Verificar cadastro das equipes eSF no SCNES com composição mínima obrigatória',
+                    'Confirmar implantação das equipes nas UBS correspondentes',
+                    'Avaliar contratação de médico/enfermeiro para equipes incompletas',
+                ],
+                'acao_url'   => 'https://cnes.datasus.gov.br',
+                'acao_label' => 'Verificar no CNES',
+            ];
+        }
+
         return $issues;
+    }
+
+    /**
+     * Busca um valor em caminhos alternativos no array (dot notation).
+     * Ex: buscarCampo($data, ['eap.teto', 'grupos.C.teto']) retorna o primeiro encontrado.
+     */
+    private function buscarCampo(array $data, array $caminhos): mixed
+    {
+        foreach ($caminhos as $caminho) {
+            $parts = explode('.', $caminho);
+            $val   = $data;
+            foreach ($parts as $part) {
+                if (!is_array($val) || !array_key_exists($part, $val)) {
+                    $val = null;
+                    break;
+                }
+                $val = $val[$part];
+            }
+            if ($val !== null) {
+                return $val;
+            }
+        }
+        return null;
     }
 
     /**

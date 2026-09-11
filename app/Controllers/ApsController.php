@@ -118,7 +118,7 @@ final class ApsController
     {
         $municipioId = $request->municipioId();
         $municipio   = $this->db->fetchOne(
-            'SELECT codigo_ibge FROM municipios WHERE id = :id LIMIT 1',
+            'SELECT codigo_ibge, nome FROM municipios WHERE id = :id LIMIT 1',
             ['id' => $municipioId],
         );
 
@@ -132,6 +132,14 @@ final class ApsController
         try {
             $service     = EGestorService::fromEnv($ibge);
             $diagnostico = $service->diagnosticoEmulti($competencia);
+
+            // Inclui metadados do município para o frontend
+            $diagnostico['municipio'] = [
+                'id'   => $municipioId,
+                'ibge' => $ibge,
+                'nome' => $municipio['nome'] ?? null,
+            ];
+
             return Response::json($diagnostico);
         } catch (HttpException $e) {
             $code = ($e->getCode() >= 400 && $e->getCode() < 600) ? $e->getCode() : 502;

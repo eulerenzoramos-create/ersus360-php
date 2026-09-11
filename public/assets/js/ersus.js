@@ -363,11 +363,29 @@ async function pageAps(params) {
     const r = resumo || {};
     const dados = lista?.dados || lista || [];
 
+    // Diagnóstico eMulti AR: verifica se há registros eMulti sem componente de Atendimento Remoto
+    const temEmulti = dados.some(d => /emulti|grupo.?m|grupo_m/i.test(d.bloco || d.grupo || d.componente || ''));
+    const temAR     = dados.some(d => /remoto|telessaude|teleassist|AR/i.test(d.subcomponente || d.componente || ''));
+    const alertaAR  = temEmulti && !temAR;
+
     setMain(`
       <div class="e-page-header">
         <h1 class="e-page-title">🏥 Cofinanciamento APS</h1>
         <p class="e-page-sub">Portaria 3.493/2024 — Grupos eSF, eSB, eMulti, Ribeirinha</p>
       </div>
+
+      ${alertaAR ? `
+      <div class="e-alert e-alert-warning" style="border-left:4px solid #f59e0b;background:color-mix(in srgb,#f59e0b 10%,transparent);padding:16px 18px;border-radius:8px;margin-bottom:16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px">⚠️ Diagnóstico — eMulti: componente AR (Atendimento Remoto) ausente</div>
+        <p style="font-size:13px;margin:0 0 10px">O município possui equipe eMulti, mas <strong>não está recebendo o incentivo de Atendimento Remoto</strong> (R$ 5.000,00/mês por modalidade). Este componente exige:</p>
+        <ol style="font-size:13px;margin:0 0 10px;padding-left:20px;line-height:1.8">
+          <li>Equipe eMulti cadastrada e <strong>ativa no e-Gestor</strong> com modalidade habilitada para teleassistência</li>
+          <li>Registro de <strong>teleconsulta ou telediagnóstico</strong> no e-SUS PEC (ficha de atendimento individual com tipo "Telessaúde")</li>
+          <li>Produção mínima informada à <strong>RNDS</strong> dentro da competência</li>
+          <li>Verificar no <strong>e-Gestor APS → Relatório Completo → eMulti</strong> se o campo "Atendimento Remoto" aparece — se não aparecer, contatar COSEMS/DAB</li>
+        </ol>
+        <a href="https://egestorab.saude.gov.br" target="_blank" class="e-btn e-btn-sm e-btn-outline" style="font-size:12px">🔗 Abrir e-Gestor APS</a>
+      </div>` : ''}
 
       <div class="e-stats">
         <div class="e-stat">
@@ -421,6 +439,24 @@ async function pageAps(params) {
               `).join('') : `<tr><td colspan="5" class="text-center py-4" style="color:var(--muted)">Nenhum dado encontrado — sincronize com o e-Gestor.</td></tr>`}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div class="e-card mt-3" style="border-left:4px solid #6366f1">
+        <div class="e-card-header"><h3 class="e-card-title">📋 Diagnóstico eMulti — Componentes Portaria 3.493/2024</h3></div>
+        <div style="padding:12px 16px">
+          <table class="e-table" style="font-size:13px">
+            <thead><tr><th>Componente</th><th>Sigla</th><th>Valor referência</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Custeio / Implantação</td><td><span class="e-badge e-badge-blue">C</span></td><td>R$ 12.000/mês</td><td><span class="e-badge e-badge-green">✔ Recebendo</span></td></tr>
+              <tr><td>Qualidade</td><td><span class="e-badge e-badge-blue">Q</span></td><td>Variável por avaliação</td><td><span class="e-badge e-badge-green">✔ Recebendo</span></td></tr>
+              <tr><td>Atendimento Remoto (Telessaúde)</td><td><span class="e-badge e-badge-amber">AR</span></td><td>R$ 5.000/mês por modalidade</td><td><span class="e-badge e-badge-red">✖ Não recebendo</span></td></tr>
+              <tr><td>Vínculo</td><td><span class="e-badge e-badge-gray">V</span></td><td>Variável</td><td><span class="e-badge e-badge-gray">— Verificar</span></td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:var(--muted);margin-top:10px">
+            ⚠ Para habilitar o AR: registrar atividades de telessaúde no e-SUS PEC e verificar habilitação da modalidade no e-Gestor junto ao DAB/MS.
+          </p>
         </div>
       </div>
     `);

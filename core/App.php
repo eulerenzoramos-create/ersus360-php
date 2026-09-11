@@ -88,6 +88,13 @@ final class App
         // Request / Response
         $c->singleton(Request::class, fn() => Request::fromGlobals());
 
+        // Logger (Monolog) — resolve Psr\Log\LoggerInterface
+        $c->singleton(\Psr\Log\LoggerInterface::class, function () {
+            $log = new \Monolog\Logger('ersus360');
+            $log->pushHandler(new \Monolog\Handler\StreamHandler('php://stderr', \Monolog\Level::Warning));
+            return $log;
+        });
+
         // Serviços core
         $c->singleton(\Ersus360\Services\JwtService::class, fn() =>
             new \Ersus360\Services\JwtService(
@@ -99,6 +106,42 @@ final class App
 
         $c->singleton(\Ersus360\Services\AuditService::class, fn() =>
             new \Ersus360\Services\AuditService($c->get(Database::class))
+        );
+
+        $c->singleton(\Ersus360\Services\PermissaoService::class,
+            fn() => new \Ersus360\Services\PermissaoService()
+        );
+
+        // Repositories
+        $c->singleton(\Ersus360\Repositories\FnsRepository::class,
+            fn() => new \Ersus360\Repositories\FnsRepository($c->get(Database::class))
+        );
+        $c->singleton(\Ersus360\Repositories\MunicipioRepository::class,
+            fn() => new \Ersus360\Repositories\MunicipioRepository($c->get(Database::class))
+        );
+        $c->singleton(\Ersus360\Repositories\FolhaRepository::class,
+            fn() => new \Ersus360\Repositories\FolhaRepository($c->get(Database::class))
+        );
+        $c->singleton(\Ersus360\Repositories\PortariasRepository::class,
+            fn() => new \Ersus360\Repositories\PortariasRepository($c->get(Database::class))
+        );
+
+        // Integrations
+        $c->singleton(\Ersus360\Integrations\ConsultaFnsClient::class,
+            fn() => new \Ersus360\Integrations\ConsultaFnsClient($c->get(\Psr\Log\LoggerInterface::class))
+        );
+        $c->singleton(\Ersus360\Integrations\ApiFnsClient::class,
+            fn() => new \Ersus360\Integrations\ApiFnsClient($c->get(\Psr\Log\LoggerInterface::class))
+        );
+
+        // Services com dependências complexas
+        $c->singleton(\Ersus360\Services\FnsService::class, fn() =>
+            new \Ersus360\Services\FnsService(
+                $c->get(\Ersus360\Repositories\FnsRepository::class),
+                $c->get(\Ersus360\Integrations\ConsultaFnsClient::class),
+                $c->get(\Ersus360\Integrations\ApiFnsClient::class),
+                $c->get(\Psr\Log\LoggerInterface::class),
+            )
         );
     }
 

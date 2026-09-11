@@ -392,25 +392,31 @@ async function pageFns(params) {
           <table class="e-table">
             <thead>
               <tr>
-                <th>Mês</th>
-                <th>Bloco</th>
-                <th>Grupo</th>
                 <th>Competência</th>
-                <th style="text-align:right">Valor</th>
+                <th>Bloco</th>
+                <th>Componente / Programa</th>
+                <th style="text-align:right">Valor Líquido</th>
+                <th>Data Crédito</th>
                 <th>Situação</th>
               </tr>
             </thead>
             <tbody>
-              ${dados.length ? dados.map(f => `
+              ${dados.length ? dados.map(f => {
+                const comp = (f.competencia || '').substring(0, 7);
+                const sit  = f.situacao || 'Pago';
+                const sitBadge = /cancelad|estorno/i.test(sit)
+                  ? 'e-badge-red' : /pendente|agendad/i.test(sit)
+                  ? 'e-badge-amber' : 'e-badge-green';
+                return `
                 <tr>
-                  <td class="mono">${Fmt.mes(f.mes_referencia)}</td>
-                  <td>${f.bloco || '—'}</td>
-                  <td>${f.grupo || '—'}</td>
-                  <td class="mono">${f.competencia || '—'}</td>
-                  <td style="text-align:right;font-weight:600">${Fmt.brl(f.valor)}</td>
-                  <td><span class="e-badge e-badge-green">Recebido</span></td>
-                </tr>
-              `).join('') : `<tr><td colspan="6" style="padding:0"><div class="e-empty"><div class="e-empty-icon">📭</div><div class="e-empty-title">Nenhum repasse encontrado</div><p>Clique em Sincronizar para buscar os dados.</p></div></td></tr>`}
+                  <td class="mono">${comp || '—'}</td>
+                  <td style="max-width:220px;white-space:normal;font-size:12px">${f.bloco || '—'}</td>
+                  <td style="font-size:12px">${f.componente || f.programa || '—'}</td>
+                  <td style="text-align:right;font-weight:700;color:var(--accent)">${Fmt.brl(f.valor_liquido ?? f.valor_bruto ?? 0)}</td>
+                  <td style="font-size:12px;color:var(--muted)">${f.data_credito ? new Date(f.data_credito).toLocaleDateString('pt-BR') : '—'}</td>
+                  <td><span class="e-badge ${sitBadge}">${sit}</span></td>
+                </tr>`;
+              }).join('') : `<tr><td colspan="6" style="padding:0"><div class="e-empty"><div class="e-empty-icon">📭</div><div class="e-empty-title">Nenhum repasse encontrado</div><p>Clique em Sincronizar para buscar os dados do FNS.</p></div></td></tr>`}
             </tbody>
           </table>
         </div>

@@ -8,6 +8,7 @@ use Ersus360\Core\Request;
 use Ersus360\Core\Response;
 use Ersus360\Core\Database;
 use Ersus360\Exceptions\HttpException;
+use Ersus360\Services\EGestorService;
 
 final class ApsController
 {
@@ -111,6 +112,51 @@ final class ApsController
     public function sincronizar(Request $request): Response
     {
         return Response::json(['mensagem' => 'Sincronização APS via e-Gestor agendada.']);
+    }
+
+    public function diagnostico(Request $request): Response
+    {
+        $usuario = $_ENV['ESUS_USUARIO'] ?? '';
+        $senha   = $_ENV['ESUS_SENHA']   ?? '';
+
+        if (!$usuario || !$senha) {
+            return Response::json([
+                'erro'    => 'Credenciais e-Gestor não configuradas.',
+                'detalhes'=> 'Configure as variáveis de ambiente ESUS_USUARIO e ESUS_SENHA no painel do Railway.',
+                'passos'  => [
+                    'Acesse railway.app → seu projeto → Variables',
+                    'Adicione ESUS_USUARIO = seu login do e-Gestor APS',
+                    'Adicione ESUS_SENHA = sua senha do e-Gestor APS',
+                    'Faça um novo deploy e tente novamente',
+                ],
+            ], 503);
+        }
+
+        // Busca o código IBGE do município autenticado
+        $municipioId = $request->municipioId();
+        $municipio   = $this->db->fetchOne(
+            'SELECT codigo_ibge FROM municipios WHERE id = :id LIMIT 1',
+            ['id' => $municipioId],
+        );
+
+        if (!$municipio || empty($municipio['codigo_ibge'])) {
+            throw new HttpException(422, 'Município sem código IBGE cadastrado.');
+        }
+
+        $ibge        = (string) $municipio['codigo_ibge'];
+        $competencia = $request->query('competencia') ?: date('Y-m', strtotime('-1 month'));
+
+        try {
+            $service    = new EGestorService($usuario, $senha, $ibge);
+            $diagnostico = $service->diagnosticoEmulti($competencia);
+            return Response::json($diagnostico);
+        } catch (HttpException $e) {
+            return Response::json([
+                'erro'    => $e->getMessage(),
+                'codigo'  => $e->getCode(),
+                'detalhes'=> 'Falha ao consultar o e-Gestor APS. Verifique as credenciais e tente novamente.',
+            ], $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 502);
+        }
     }
 
     public function exportar(Request $request): Response

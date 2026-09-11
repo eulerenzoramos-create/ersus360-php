@@ -89,6 +89,7 @@ $router->group('/api/aps', [AuthMiddleware::class, PermissaoMiddleware::para('ap
     $r->get('/competencias', fn($req) => $container->make(ApsController::class)->competencias($req));
     $r->post('/sincronizar', fn($req) => $container->make(ApsController::class)->sincronizar($req));
     $r->get('/exportar',     fn($req) => $container->make(ApsController::class)->exportar($req));
+    $r->get('/diagnostico',  fn($req) => $container->make(ApsController::class)->diagnostico($req));
 });
 
 // ─────────────────────────────────────────────────────────────

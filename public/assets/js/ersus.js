@@ -436,19 +436,99 @@ async function pageAps(params) {
     const user = Auth.user();
     const mid  = user?.municipio_id || 1;
     const ano  = params.get('ano') || new Date().getFullYear();
+    const compAtual = params.get('competencia') || (() => {
+      const d = new Date(); d.setMonth(d.getMonth() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    })();
 
-    const [lista, resumo] = await Promise.all([
+    const [lista, resumo, diagResp] = await Promise.all([
       api(`/api/aps?municipio_id=${mid}&ano=${ano}`),
       api(`/api/aps/resumo?municipio_id=${mid}&ano=${ano}`),
+      api(`/api/aps/diagnostico?municipio_id=${mid}&competencia=${compAtual}`).catch(e => ({ _erro: e.message })),
     ]);
 
     const r = resumo || {};
     const dados = lista?.dados || lista || [];
+    const diag  = diagResp || {};
+    const diagErro = diag._erro || diag.erro;
 
-    // Diagnóstico eMulti AR: verifica se há registros eMulti sem componente de Atendimento Remoto
+    // Monta painel de inconsistências do e-Gestor
+    function renderDiagEgestor() {
+      if (diagErro) {
+        const passos = diag.passos || [];
+        return `
+        <div class="e-card mt-3" style="border-left:4px solid #94a3b8">
+          <div class="e-card-header"><h3 class="e-card-title">🔌 Diagnóstico e-Gestor — Configuração necessária</h3></div>
+          <div style="padding:12px 16px;font-size:13px">
+            <p style="color:var(--muted);margin-bottom:10px">${diagErro}</p>
+            ${passos.length ? `<ol style="padding-left:20px;line-height:1.9">${passos.map(p=>`<li>${p}</li>`).join('')}</ol>` : ''}
+          </div>
+        </div>`;
+      }
+
+      const comps = diag.componentes || {};
+      const issues = diag.inconsistencias || [];
+
+      const statusBadge = s => {
+        if (s === 'recebendo')      return `<span class="e-badge e-badge-green">✔ Recebendo</span>`;
+        if (s === 'ausente_critico')return `<span class="e-badge e-badge-red">✖ Ausente (crítico)</span>`;
+        return `<span class="e-badge e-badge-gray">— Não recebendo</span>`;
+      };
+      const sevBg = s => s === 'critico' ? '#fee2e2' : '#fef3c7';
+      const sevBorder = s => s === 'critico' ? '#ef4444' : '#f59e0b';
+
+      const issuesHtml = issues.map(issue => `
+        <div style="border-left:4px solid ${sevBorder(issue.severidade)};background:${sevBg(issue.severidade)};border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:12px">
+          <div style="font-weight:700;font-size:14px;margin-bottom:6px;color:#1e293b">${issue.severidade === 'critico' ? '🚨' : '⚠️'} ${issue.titulo}</div>
+          <p style="font-size:13px;margin:0 0 8px;color:#374151">${issue.descricao}</p>
+          <p style="font-size:12px;color:#6b7280;margin:0 0 8px"><strong>Impacto financeiro:</strong> ${issue.impacto}</p>
+          <ol style="font-size:13px;margin:0 0 10px;padding-left:20px;line-height:1.8;color:#374151">
+            ${(issue.requisitos || []).map(r=>`<li>${r}</li>`).join('')}
+          </ol>
+          ${issue.acao_url ? `<a href="${issue.acao_url}" target="_blank" class="e-btn e-btn-sm e-btn-outline" style="font-size:12px">${issue.acao_label || 'Verificar'}</a>` : ''}
+        </div>`).join('');
+
+      const compsHtml = Object.values(comps).map(c => `
+        <tr>
+          <td>${c.label}</td>
+          <td><span class="e-badge e-badge-blue">${c.sigla}</span></td>
+          <td style="text-align:right">${c.valor_ref ? Fmt.brl(c.valor_ref) + '/mês' : 'Variável'}</td>
+          <td style="text-align:right;font-weight:600">${Fmt.brl(c.valor)}</td>
+          <td>${statusBadge(c.status)}</td>
+        </tr>`).join('');
+
+      return `
+        ${issues.length ? `
+        <div class="e-card mt-3" style="border-left:4px solid #ef4444">
+          <div class="e-card-header"><h3 class="e-card-title">🔍 Inconsistências identificadas no e-Gestor — ${compAtual}</h3></div>
+          <div style="padding:12px 16px">${issuesHtml}</div>
+        </div>` : `
+        <div class="e-card mt-3" style="border-left:4px solid #22c55e">
+          <div class="e-card-header"><h3 class="e-card-title">✅ e-Gestor — Sem inconsistências em ${compAtual}</h3></div>
+          <div style="padding:12px 16px;font-size:13px;color:var(--muted)">Todos os componentes estão recebendo normalmente conforme a Portaria 3.493/2024.</div>
+        </div>`}
+
+        <div class="e-card mt-3" style="border-left:4px solid #6366f1">
+          <div class="e-card-header"><h3 class="e-card-title">📋 Componentes eMulti — Portaria 3.493/2024</h3></div>
+          <div class="e-table-wrap" style="padding:0 16px 16px">
+            <table class="e-table" style="font-size:13px">
+              <thead><tr><th>Componente</th><th>Sigla</th><th>Valor ref.</th><th style="text-align:right">Valor recebido</th><th>Status</th></tr></thead>
+              <tbody>${compsHtml || `
+                <tr><td>Custeio / Implantação</td><td><span class="e-badge e-badge-blue">C</span></td><td>R$ 12.000/mês</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando sync</span></td></tr>
+                <tr><td>Qualidade</td><td><span class="e-badge e-badge-blue">Q</span></td><td>Variável</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando sync</span></td></tr>
+                <tr><td>Atendimento Remoto</td><td><span class="e-badge e-badge-amber">AR</span></td><td>R$ 5.000/mês</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando sync</span></td></tr>
+                <tr><td>Vínculo</td><td><span class="e-badge e-badge-gray">V</span></td><td>Variável</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando sync</span></td></tr>`}
+              </tbody>
+            </table>
+            ${diag.coletado_em ? `<p style="font-size:11px;color:var(--muted);margin-top:8px">Dados coletados do e-Gestor em: ${new Date(diag.coletado_em).toLocaleString('pt-BR')}</p>` : ''}
+          </div>
+        </div>`;
+    }
+
+    // Fallback: análise local se o e-Gestor não estiver configurado
     const temEmulti = dados.some(d => /emulti|grupo.?m|grupo_m/i.test(d.bloco || d.grupo || d.componente || ''));
     const temAR     = dados.some(d => /remoto|telessaude|teleassist|AR/i.test(d.subcomponente || d.componente || ''));
-    const alertaAR  = temEmulti && !temAR;
+    const alertaARLocal = diagErro && temEmulti && !temAR;
 
     setMain(`
       <div class="e-page-header">
@@ -456,17 +536,10 @@ async function pageAps(params) {
         <p class="e-page-sub">Portaria 3.493/2024 — Grupos eSF, eSB, eMulti, Ribeirinha</p>
       </div>
 
-      ${alertaAR ? `
-      <div class="e-alert e-alert-warning" style="border-left:4px solid #f59e0b;background:color-mix(in srgb,#f59e0b 10%,transparent);padding:16px 18px;border-radius:8px;margin-bottom:16px">
-        <div style="font-weight:700;font-size:14px;margin-bottom:6px">⚠️ Diagnóstico — eMulti: componente AR (Atendimento Remoto) ausente</div>
-        <p style="font-size:13px;margin:0 0 10px">O município possui equipe eMulti, mas <strong>não está recebendo o incentivo de Atendimento Remoto</strong> (R$ 5.000,00/mês por modalidade). Este componente exige:</p>
-        <ol style="font-size:13px;margin:0 0 10px;padding-left:20px;line-height:1.8">
-          <li>Equipe eMulti cadastrada e <strong>ativa no e-Gestor</strong> com modalidade habilitada para teleassistência</li>
-          <li>Registro de <strong>teleconsulta ou telediagnóstico</strong> no e-SUS PEC (ficha de atendimento individual com tipo "Telessaúde")</li>
-          <li>Produção mínima informada à <strong>RNDS</strong> dentro da competência</li>
-          <li>Verificar no <strong>e-Gestor APS → Relatório Completo → eMulti</strong> se o campo "Atendimento Remoto" aparece — se não aparecer, contatar COSEMS/DAB</li>
-        </ol>
-        <a href="https://egestorab.saude.gov.br" target="_blank" class="e-btn e-btn-sm e-btn-outline" style="font-size:12px">🔗 Abrir e-Gestor APS</a>
+      ${alertaARLocal ? `
+      <div style="border-left:4px solid #f59e0b;background:color-mix(in srgb,#f59e0b 10%,transparent);padding:16px 18px;border-radius:8px;margin-bottom:16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px">⚠️ eMulti: componente AR ausente (análise local)</div>
+        <p style="font-size:13px;margin:0 0 8px">Configure ESUS_USUARIO e ESUS_SENHA para diagnóstico detalhado do e-Gestor.</p>
       </div>` : ''}
 
       <div class="e-stats">
@@ -524,23 +597,7 @@ async function pageAps(params) {
         </div>
       </div>
 
-      <div class="e-card mt-3" style="border-left:4px solid #6366f1">
-        <div class="e-card-header"><h3 class="e-card-title">📋 Diagnóstico eMulti — Componentes Portaria 3.493/2024</h3></div>
-        <div style="padding:12px 16px">
-          <table class="e-table" style="font-size:13px">
-            <thead><tr><th>Componente</th><th>Sigla</th><th>Valor referência</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr><td>Custeio / Implantação</td><td><span class="e-badge e-badge-blue">C</span></td><td>R$ 12.000/mês</td><td><span class="e-badge e-badge-green">✔ Recebendo</span></td></tr>
-              <tr><td>Qualidade</td><td><span class="e-badge e-badge-blue">Q</span></td><td>Variável por avaliação</td><td><span class="e-badge e-badge-green">✔ Recebendo</span></td></tr>
-              <tr><td>Atendimento Remoto (Telessaúde)</td><td><span class="e-badge e-badge-amber">AR</span></td><td>R$ 5.000/mês por modalidade</td><td><span class="e-badge e-badge-red">✖ Não recebendo</span></td></tr>
-              <tr><td>Vínculo</td><td><span class="e-badge e-badge-gray">V</span></td><td>Variável</td><td><span class="e-badge e-badge-gray">— Verificar</span></td></tr>
-            </tbody>
-          </table>
-          <p style="font-size:12px;color:var(--muted);margin-top:10px">
-            ⚠ Para habilitar o AR: registrar atividades de telessaúde no e-SUS PEC e verificar habilitação da modalidade no e-Gestor junto ao DAB/MS.
-          </p>
-        </div>
-      </div>
+      ${renderDiagEgestor()}
     `);
 
     window.sincAps = async () => {

@@ -144,6 +144,87 @@ function error(msg) {
   setMain(`<div class="e-empty"><div class="e-empty-icon">⚠️</div><div class="e-empty-title">Erro ao carregar dados</div><p>${msg}</p></div>`);
 }
 
+// ── Diagnóstico padrão para módulos sem dados ─────────────
+const DIAG = {
+  fns: {
+    titulo: '💰 Transferências FNS — sem dados',
+    passos: [
+      'Clique em <strong>Sincronizar FNS</strong> no topo da tela',
+      'O sistema buscará os repasses do Fundo Nacional de Saúde para Apuí/AM',
+      'Se o botão retornar erro, verifique as variáveis <code>MUNICIPIO_IBGE</code> e <code>MUNICIPIO_UF</code> no Railway',
+    ],
+    extra: 'Os repasses são públicos e não precisam de credenciais para serem consultados.',
+  },
+  aps: {
+    titulo: '🏥 Cofinanciamento APS — sem dados',
+    passos: [
+      'Adicione <code>ESUS_USUARIO</code> e <code>ESUS_SENHA</code> nas variáveis do Railway (credenciais do e-Gestor APS)',
+      'Clique em <strong>Sincronizar e-Gestor</strong> na tela de APS',
+      'O sistema buscará os repasses dos Grupos C, B e M para a competência selecionada',
+    ],
+    extra: 'Credenciais são as mesmas usadas para acessar egestorab.saude.gov.br.',
+  },
+  emendas: {
+    titulo: '🏛️ Emendas Parlamentares — sem dados',
+    passos: [
+      'Clique em <strong>+ Nova emenda</strong> para cadastrar manualmente, ou',
+      'Configure a integração com o InvestSUS adicionando <code>INVESTSUS_TOKEN</code> no Railway',
+      'Os dados do InvestSUS são atualizados mensalmente pelo MS',
+    ],
+    extra: 'Emendas parlamentares do município podem ser consultadas em investsus.saude.gov.br.',
+  },
+  portarias: {
+    titulo: '📄 Portarias DOU — sem dados',
+    passos: [
+      'Clique em <strong>Sincronizar DOU</strong> na tela de Portarias',
+      'O sistema busca portarias do Diário Oficial relacionadas a Apuí/AM e à APS',
+      'A busca é automática e não precisa de credenciais',
+    ],
+    extra: 'Portarias são buscadas na API pública do Diário Oficial da União (in.gov.br).',
+  },
+  folha: {
+    titulo: '👥 Folha de Presença — sem dados',
+    passos: [
+      'Acesse o sistema Python antigo e exporte o arquivo <code>folha_referencia.json</code>',
+      'Use a opção de importação legacy em <strong>Administração → Importar Folha</strong>',
+      'Após a importação, os funcionários e histórico de presença estarão disponíveis',
+    ],
+    extra: 'Dados históricos do sistema anterior podem ser migrados sem perda de informações.',
+  },
+  cnes: {
+    titulo: '🏥 CNES — sem dados',
+    passos: [
+      'Adicione <code>CNES_TOKEN</code> nas variáveis do Railway (token de acesso à API do CNES)',
+      'Clique em <strong>Sincronizar CNES</strong> na tela de estabelecimentos',
+      'O sistema buscará estabelecimentos, equipes e profissionais de Apuí/AM',
+    ],
+    extra: 'O token CNES é obtido no portal datasus.gov.br — seção desenvolvedores.',
+  },
+  indicadores: {
+    titulo: '📊 Mapa de Desempenho — sem dados suficientes',
+    passos: [
+      'Sincronize os módulos APS, FNS e CNES para alimentar os indicadores',
+      'O score ERSUS 360 é calculado automaticamente com base nos dados disponíveis',
+      'Módulos com mais dados geram indicadores mais precisos',
+    ],
+    extra: 'O score é um indicador gerencial interno — não equivale ao ranking oficial DAB/MS.',
+  },
+};
+
+function diagCard(modulo) {
+  const d = DIAG[modulo];
+  if (!d) return '';
+  return `
+    <div style="border:1.5px dashed #94a3b8;border-radius:10px;padding:20px 22px;margin-top:16px;background:color-mix(in srgb,currentColor 3%,transparent)">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--text)">${d.titulo}</div>
+      <p style="font-size:13px;margin:0 0 10px;color:var(--muted)">Nenhum dado encontrado. Para ativar este módulo:</p>
+      <ol style="font-size:13px;margin:0 0 12px;padding-left:20px;line-height:2;color:var(--text)">
+        ${d.passos.map(p => `<li>${p}</li>`).join('')}
+      </ol>
+      <p style="font-size:12px;color:var(--muted);margin:0">💡 ${d.extra}</p>
+    </div>`;
+}
+
 // ── Dashboard page ───────────────────────────────────────
 async function pageDashboard() {
   loading();
@@ -329,11 +410,12 @@ async function pageFns(params) {
                   <td style="text-align:right;font-weight:600">${Fmt.brl(f.valor)}</td>
                   <td><span class="e-badge e-badge-green">Recebido</span></td>
                 </tr>
-              `).join('') : `<tr><td colspan="6"><div class="e-empty"><div class="e-empty-icon">📭</div><div class="e-empty-title">Nenhum repasse encontrado</div><p>Sincronize para buscar os dados.</p></div></td></tr>`}
+              `).join('') : `<tr><td colspan="6" style="padding:0"><div class="e-empty"><div class="e-empty-icon">📭</div><div class="e-empty-title">Nenhum repasse encontrado</div><p>Clique em Sincronizar para buscar os dados.</p></div></td></tr>`}
             </tbody>
           </table>
         </div>
       </div>
+      ${!dados.length ? diagCard('fns') : ''}
     `);
 
     window.sincFns = async () => {
@@ -557,6 +639,7 @@ async function pageEmendas(params) {
           </table>
         </div>
       </div>
+      ${!dados.length ? diagCard('emendas') : ''}
     `);
 
     window.novaEmenda = () => Toast.show('Formulário de nova emenda — em breve', 'info');
@@ -619,6 +702,7 @@ async function pagePortarias(params) {
           </table>
         </div>
       </div>
+      ${!dados.length ? diagCard('portarias') : ''}
     `);
 
     window.sincPortarias = async () => {
@@ -722,6 +806,7 @@ async function pageFolha(params) {
           </table>
         </div>
       </div>
+      ${!lista.length ? diagCard('folha') : ''}
     `);
 
     window.togglePresenca = async (id, presente, mes) => {
@@ -795,6 +880,7 @@ async function pageCnes(params) {
           </table>
         </div>
       </div>
+      ${!lista.length ? diagCard('cnes') : ''}
     `);
 
     window.sincCnes = async () => {
@@ -885,6 +971,7 @@ async function pageIndicadores() {
           `).join('')}
         </div>
       </div>
+      ${!dados ? diagCard('indicadores') : ''}
     `);
   } catch(e) { error(e.message); }
 }

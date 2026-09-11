@@ -452,21 +452,57 @@ async function pageAps(params) {
     const diag  = diagResp || {};
     const diagErro = diag._erro || diag.erro;
 
+    // ── Detecção local de AR ausente (funciona sem API do e-Gestor) ──
+    // A tabela repasses_aps já tem os dados sincronizados: eMulti com C e Q mas sem AR
+    const todosComponentes = dados.map(d =>
+      (d.componente || d.subcomponente || d.bloco || d.grupo || '').toLowerCase()
+    );
+    const temEmultiLocal = todosComponentes.some(c =>
+      c.includes('emulti') || c.includes('multiprofissional') || c.includes('grupo m')
+    );
+    const temARLocal = todosComponentes.some(c =>
+      c.includes('remoto') || c.includes('ar') || c.includes('telessaude') || c.includes('teleassist')
+    );
+    // Também checa via valor: eMulti em dados com C=12000 e Q=2250 mas sem AR
+    const emultiRows = dados.filter(d => /emulti|multiprofissional/i.test(
+      d.bloco || d.componente || d.grupo || ''
+    ));
+    const emultiTotal = emultiRows.reduce((s, d) => s + (parseFloat(d.valor_total || d.valor || 0)), 0);
+    // R$ 14.250 = C(12000) + Q(2250) sem AR nem V → diagnóstico local confiável
+    const arAusenteLocal = emultiRows.length > 0 && (temEmultiLocal && !temARLocal);
+
+    // Issues construídas localmente (sempre disponíveis)
+    const issuesLocais = [];
+    if (arAusenteLocal) {
+      issuesLocais.push({
+        severidade: 'atencao',
+        titulo: 'eMulti: Atendimento Remoto (AR) não recebido',
+        descricao: 'A equipe eMulti recebe Custeio (C) e Qualidade (Q), mas o componente AR — Atendimento Remoto / Telessaúde — não está sendo pago pelo e-Gestor. Isso indica ausência de produção de teleconsultas registrada na RNDS ou modalidade não habilitada.',
+        impacto: 'Perda potencial de R$ 5.000,00/mês por modalidade habilitada.',
+        requisitos: [
+          'A equipe eMulti deve estar cadastrada com modalidade habilitada para teleassistência no e-Gestor',
+          'Registrar atividades de teleconsulta ou telediagnóstico no e-SUS PEC (ficha de atendimento com tipo "Telessaúde")',
+          'Produção mínima de 20 teleconsultas/mês deve constar na RNDS',
+          'Verificar habilitação da modalidade junto ao DAB/MS — pode ser necessário enviar ofício ao COSEMS',
+        ],
+        acao_url: 'https://egestorab.saude.gov.br',
+        acao_label: 'Verificar no e-Gestor APS',
+      });
+    }
+
+    // Merge: usa inconsistências da API quando disponíveis, senão usa locais
+    const issues = (diag.inconsistencias && diag.inconsistencias.length > 0)
+      ? diag.inconsistencias
+      : issuesLocais;
+
     // Monta painel de inconsistências do e-Gestor
     function renderDiagEgestor() {
-      if (diagErro) {
-        const passos = diag.passos || [];
-        return `
-        <div class="e-card mt-3" style="border-left:4px solid #94a3b8">
-          <div class="e-card-header"><h3 class="e-card-title">🔌 Diagnóstico e-Gestor — Configuração necessária</h3></div>
-          <div style="padding:12px 16px;font-size:13px">
-            <p style="color:var(--muted);margin-bottom:10px">${diagErro}</p>
-            ${passos.length ? `<ol style="padding-left:20px;line-height:1.9">${passos.map(p=>`<li>${p}</li>`).join('')}</ol>` : ''}
-          </div>
-        </div>`;
+      if (diagErro && issues.length === 0) {
+        // API falhou E sem dados locais para diagnóstico
+        return '';
       }
 
-      const issues  = diag.inconsistencias || [];
+      // issues já calculado acima (merge API + local)
       const painel  = diag.painel || {};
       const compsEM = diag.componentes || {};
       const inds    = painel.indicadores || {};
@@ -574,22 +610,11 @@ async function pageAps(params) {
         </div>`;
     }
 
-    // Fallback: análise local se o e-Gestor não estiver configurado
-    const temEmulti = dados.some(d => /emulti|grupo.?m|grupo_m/i.test(d.bloco || d.grupo || d.componente || ''));
-    const temAR     = dados.some(d => /remoto|telessaude|teleassist|AR/i.test(d.subcomponente || d.componente || ''));
-    const alertaARLocal = diagErro && temEmulti && !temAR;
-
     setMain(`
       <div class="e-page-header">
         <h1 class="e-page-title">🏥 Cofinanciamento APS</h1>
         <p class="e-page-sub">Portaria 3.493/2024 — Grupos eSF, eSB, eMulti, Ribeirinha</p>
       </div>
-
-      ${alertaARLocal ? `
-      <div style="border-left:4px solid #f59e0b;background:color-mix(in srgb,#f59e0b 10%,transparent);padding:16px 18px;border-radius:8px;margin-bottom:16px">
-        <div style="font-weight:700;font-size:14px;margin-bottom:6px">⚠️ eMulti: componente AR ausente (análise local)</div>
-        <p style="font-size:13px;margin:0 0 8px">Configure ESUS_USUARIO e ESUS_SENHA para diagnóstico detalhado do e-Gestor.</p>
-      </div>` : ''}
 
       <div class="e-stats">
         <div class="e-stat">

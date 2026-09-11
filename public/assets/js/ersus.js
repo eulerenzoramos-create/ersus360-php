@@ -466,15 +466,12 @@ async function pageAps(params) {
         </div>`;
       }
 
-      const comps = diag.componentes || {};
-      const issues = diag.inconsistencias || [];
+      const issues  = diag.inconsistencias || [];
+      const painel  = diag.painel || {};
+      const compsEM = diag.componentes || {};
+      const inds    = painel.indicadores || {};
 
-      const statusBadge = s => {
-        if (s === 'recebendo')      return `<span class="e-badge e-badge-green">✔ Recebendo</span>`;
-        if (s === 'ausente_critico')return `<span class="e-badge e-badge-red">✖ Ausente (crítico)</span>`;
-        return `<span class="e-badge e-badge-gray">— Não recebendo</span>`;
-      };
-      const sevBg = s => s === 'critico' ? '#fee2e2' : '#fef3c7';
+      const sevBg     = s => s === 'critico' ? '#fee2e2' : '#fef3c7';
       const sevBorder = s => s === 'critico' ? '#ef4444' : '#f59e0b';
 
       const issuesHtml = issues.map(issue => `
@@ -488,39 +485,91 @@ async function pageAps(params) {
           ${issue.acao_url ? `<a href="${issue.acao_url}" target="_blank" class="e-btn e-btn-sm e-btn-outline" style="font-size:12px">${issue.acao_label || 'Verificar'}</a>` : ''}
         </div>`).join('');
 
-      const compsHtml = Object.values(comps).map(c => `
-        <tr>
+      // ── Tabela completa de equipes (igual ao sistema antigo) ──
+      const linhas = painel.linhas || [];
+      const indsHtml = [
+        ['Equidade ESF',    inds.equidade_esf],
+        ['Vínculo ESF/eAP', inds.vinculo_esf_eap],
+        ['Qualidade ESF',   inds.qualidade_esf],
+        ['Qualidade eMulti',inds.qualidade_emulti],
+      ].filter(([,v]) => v).map(([l,v]) => `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;min-width:140px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">${l}</div>
+          <div style="margin-top:6px"><span class="e-badge e-badge-green">${v}</span></div>
+        </div>`).join('');
+
+      const linhasHtml = linhas.length ? linhas.map(l => {
+        const semEquipes = l.qtdPagas === 0 || l.qtdPagas === '0';
+        return `
+        <tr style="${semEquipes ? 'opacity:.55' : ''}">
+          <td style="font-weight:500">${l.label}</td>
+          <td style="text-align:center">${l.qtdPagas ?? '—'}</td>
+          <td style="text-align:center">${l.teto ?? '—'}</td>
+          <td style="text-align:right;font-weight:700;color:${l.valor > 0 ? 'var(--accent)' : 'var(--muted)'}">${l.valor > 0 ? Fmt.brl(l.valor) : '—'}</td>
+          <td style="font-size:12px;color:var(--muted)">${l.detalhes || (semEquipes ? 'Sem equipes pagas' : '')}</td>
+        </tr>`;
+      }).join('') : `
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">
+          Dados de equipes não disponíveis neste formato de resposta do e-Gestor.
+        </td></tr>`;
+
+      // ── Componentes eMulti ──
+      const emHtml = Object.values(compsEM).map(c => {
+        const badge = c.status === 'recebendo'
+          ? `<span class="e-badge e-badge-green">✔ Recebendo</span>`
+          : `<span class="e-badge e-badge-gray">✖ Não recebendo</span>`;
+        return `<tr>
           <td>${c.label}</td>
           <td><span class="e-badge e-badge-blue">${c.sigla}</span></td>
           <td style="text-align:right">${c.valor_ref ? Fmt.brl(c.valor_ref) + '/mês' : 'Variável'}</td>
-          <td style="text-align:right;font-weight:600">${Fmt.brl(c.valor)}</td>
-          <td>${statusBadge(c.status)}</td>
-        </tr>`).join('');
+          <td style="text-align:right;font-weight:600">${c.valor > 0 ? Fmt.brl(c.valor) : '—'}</td>
+          <td>${badge}</td>
+        </tr>`;
+      }).join('');
+
+      const coletadoEm = painel.coletado_em || diag.coletado_em;
 
       return `
         ${issues.length ? `
-        <div class="e-card mt-3" style="border-left:4px solid #ef4444">
-          <div class="e-card-header"><h3 class="e-card-title">🔍 Inconsistências identificadas no e-Gestor — ${compAtual}</h3></div>
+        <div class="e-card mt-3" style="border-left:4px solid #f59e0b">
+          <div class="e-card-header"><h3 class="e-card-title">🔍 Inconsistências — e-Gestor ${compAtual}</h3></div>
           <div style="padding:12px 16px">${issuesHtml}</div>
         </div>` : `
         <div class="e-card mt-3" style="border-left:4px solid #22c55e">
-          <div class="e-card-header"><h3 class="e-card-title">✅ e-Gestor — Sem inconsistências em ${compAtual}</h3></div>
-          <div style="padding:12px 16px;font-size:13px;color:var(--muted)">Todos os componentes estão recebendo normalmente conforme a Portaria 3.493/2024.</div>
+          <div class="e-card-header"><h3 class="e-card-title">✅ Sem inconsistências em ${compAtual}</h3></div>
+          <div style="padding:12px 16px;font-size:13px;color:var(--muted)">Todos os componentes estão recebendo normalmente.</div>
         </div>`}
+
+        <div class="e-card mt-3">
+          <div class="e-card-header">
+            <h3 class="e-card-title">📊 Equipes e Indicadores — ${compAtual}</h3>
+          </div>
+          ${indsHtml ? `<div style="display:flex;gap:12px;flex-wrap:wrap;padding:12px 16px 0">${indsHtml}</div>` : ''}
+          <div class="e-table-wrap" style="padding:8px 16px 16px">
+            <table class="e-table" style="font-size:13px">
+              <thead><tr><th>Componente</th><th style="text-align:center">Qtd Pagas</th><th style="text-align:center">Teto</th><th style="text-align:right">Valor Total</th><th>Detalhes</th></tr></thead>
+              <tbody>${linhasHtml}</tbody>
+            </table>
+            ${coletadoEm ? `
+            <p style="font-size:11px;color:var(--muted);margin-top:10px">
+              Fonte: e-Gestor APS (tipoRelatorio=COMPLETO) · Coletado em: ${new Date(coletadoEm).toLocaleString('pt-BR')}
+              &nbsp;·&nbsp;<a href="https://egestorab.saude.gov.br" target="_blank" style="color:var(--accent)">Ver no e-Gestor APS ↗</a>
+            </p>` : ''}
+          </div>
+        </div>
 
         <div class="e-card mt-3" style="border-left:4px solid #6366f1">
           <div class="e-card-header"><h3 class="e-card-title">📋 Componentes eMulti — Portaria 3.493/2024</h3></div>
           <div class="e-table-wrap" style="padding:0 16px 16px">
             <table class="e-table" style="font-size:13px">
-              <thead><tr><th>Componente</th><th>Sigla</th><th>Valor ref.</th><th style="text-align:right">Valor recebido</th><th>Status</th></tr></thead>
-              <tbody>${compsHtml || `
-                <tr><td>Custeio / Implantação</td><td><span class="e-badge e-badge-blue">C</span></td><td>R$ 12.000/mês</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando sync</span></td></tr>
-                <tr><td>Qualidade</td><td><span class="e-badge e-badge-blue">Q</span></td><td>Variável</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando sync</span></td></tr>
-                <tr><td>Atendimento Remoto</td><td><span class="e-badge e-badge-amber">AR</span></td><td>R$ 5.000/mês</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando sync</span></td></tr>
-                <tr><td>Vínculo</td><td><span class="e-badge e-badge-gray">V</span></td><td>Variável</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando sync</span></td></tr>`}
+              <thead><tr><th>Componente</th><th>Sigla</th><th style="text-align:right">Valor ref.</th><th style="text-align:right">Recebido</th><th>Status</th></tr></thead>
+              <tbody>${emHtml || `
+                <tr><td>Custeio / Implantação</td><td><span class="e-badge e-badge-blue">C</span></td><td style="text-align:right">R$ 12.000/mês</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando</span></td></tr>
+                <tr><td>Qualidade</td><td><span class="e-badge e-badge-blue">Q</span></td><td style="text-align:right">Variável</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando</span></td></tr>
+                <tr><td>Atendimento Remoto</td><td><span class="e-badge e-badge-amber">AR</span></td><td style="text-align:right">R$ 5.000/mês</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando</span></td></tr>
+                <tr><td>Vínculo</td><td><span class="e-badge e-badge-gray">V</span></td><td style="text-align:right">Variável</td><td style="text-align:right">—</td><td><span class="e-badge e-badge-gray">Aguardando</span></td></tr>`}
               </tbody>
             </table>
-            ${diag.coletado_em ? `<p style="font-size:11px;color:var(--muted);margin-top:8px">Dados coletados do e-Gestor em: ${new Date(diag.coletado_em).toLocaleString('pt-BR')}</p>` : ''}
           </div>
         </div>`;
     }

@@ -63,13 +63,17 @@ final class EGestorService
     }
 
     /**
-     * Busca repasse COMPLETO do e-Gestor para a competência e retorna diagnóstico eMulti.
+     * Busca repasse COMPLETO e retorna painel APS + diagnóstico eMulti.
      */
     public function diagnosticoEmulti(string $competencia): array
     {
         $token   = $this->resolverToken();
         $repasse = $this->buscarRepasse($token, $competencia);
-        return $this->analisarEmulti($repasse, $competencia);
+
+        $emulti = $this->analisarEmulti($repasse, $competencia);
+        $painel = $this->extrairPainelCompleto($repasse, $competencia);
+
+        return array_merge($emulti, ['painel' => $painel, 'repasse_bruto' => $repasse]);
     }
 
     /**
@@ -80,6 +84,84 @@ final class EGestorService
         $token   = $this->resolverToken();
         $repasse = $this->buscarRepasse($token, $competencia);
         return $repasse;
+    }
+
+    /**
+     * Extrai a visão completa de todos os componentes APS (eSF, eAP, eMulti, eSB, ACS…)
+     * para renderizar a tabela principal igual ao sistema antigo.
+     */
+    private function extrairPainelCompleto(array $r, string $competencia): array
+    {
+        // Mapa de siglas → label exibida
+        $labels = [
+            'eSF'          => 'eSF — Saúde da Família',
+            'eAP'          => 'eAP — Atenção Primária Ampliada',
+            'eMulti'       => 'eMulti — Multiprofissional',
+            'eSB'          => 'eSB — Saúde Bucal',
+            'ACS'          => 'ACS — Agentes Comunitários',
+            'eSFRB'        => 'eSFRB — Ribeirinha',
+            'Microscopista'=> 'Microscopistas',
+            'PerCapita'    => 'Per capita populacional',
+        ];
+
+        $linhas = [];
+
+        // Tenta extrair de $r['equipes'] (formato mais comum do e-Gestor COMPLETO)
+        $equipes = $r['equipes'] ?? $r['grupos'] ?? $r['componentes'] ?? [];
+
+        foreach ($equipes as $key => $eq) {
+            if (!is_array($eq)) continue;
+
+            $sigla     = $eq['sigla']     ?? $eq['tipo']       ?? (string) $key;
+            $label     = $labels[$sigla]  ?? ($eq['descricao'] ?? $eq['nome'] ?? $sigla);
+            $qtdPagas  = $eq['qtdPagas']  ?? $eq['quantidadePaga'] ?? null;
+            $teto      = $eq['teto']      ?? $eq['quantidadeTeto']  ?? null;
+            $valor     = (float) ($eq['valorTotal'] ?? $eq['valor'] ?? 0);
+            $detalhes  = $this->formatarDetalhes($eq['subComponentes'] ?? $eq['detalhes'] ?? []);
+
+            $linhas[] = [
+                'sigla'    => $sigla,
+                'label'    => $label,
+                'qtdPagas' => $qtdPagas,
+                'teto'     => $teto,
+                'valor'    => $valor,
+                'detalhes' => $detalhes,
+            ];
+        }
+
+        // Indicadores (qualidade, vínculo, equidade)
+        $indicadores = [
+            'equidade_esf'   => $r['equidadeEsf']    ?? $r['indicadores']['equidadeEsf']   ?? null,
+            'vinculo_esf_eap'=> $r['vinculoEsfEap']  ?? $r['indicadores']['vinculo']        ?? null,
+            'qualidade_esf'  => $r['qualidadeEsf']   ?? $r['indicadores']['qualidadeEsf']  ?? null,
+            'qualidade_emulti'=> $r['qualidadeEmulti']?? $r['indicadores']['qualidadeEmulti']?? null,
+        ];
+
+        $valorTotal = array_sum(array_column($linhas, 'valor'));
+
+        return [
+            'competencia' => $competencia,
+            'valor_total' => $valorTotal,
+            'linhas'      => $linhas,
+            'indicadores' => $indicadores,
+            'fonte'       => 'e-Gestor APS (tipoRelatorio=COMPLETO)',
+            'coletado_em' => date('c'),
+        ];
+    }
+
+    /** @param array<mixed> $subs */
+    private function formatarDetalhes(array $subs): string
+    {
+        $partes = [];
+        foreach ($subs as $s) {
+            if (!is_array($s)) continue;
+            $sigla = $s['sigla'] ?? $s['tipo'] ?? '';
+            $val   = (float) ($s['valor'] ?? $s['valorTotal'] ?? 0);
+            if ($sigla && $val > 0) {
+                $partes[] = "{$sigla} R$ " . number_format($val, 2, ',', '.');
+            }
+        }
+        return implode(' · ', $partes);
     }
 
     // ── Privado ──────────────────────────────────────────────

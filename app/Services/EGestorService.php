@@ -25,9 +25,7 @@ final class EGestorService
     ];
 
     // Valor fixo por equipe eSF (referência real: 9 equipes = R$ 270.000 → R$ 30.000/equipe incluindo F+V+Q)
-    private const ESF_VALOR_EQUIPE   = 30000.00;
-    // Valor de referência eAP (estimativa Portaria — varia por componente habilitado)
-    private const EAP_VALOR_EQUIPE   = 16000.00;
+    private const ESF_VALOR_EQUIPE = 30000.00;
 
     // Requisitos para cada componente ausente
     private const REQUISITOS_AR = [
@@ -245,32 +243,7 @@ final class EGestorService
             ];
         }
 
-        // ── 3. eAP com teto alto mas 0 equipes pagas ─────────────────
-        $eapTeto  = (int) $this->buscarCampo($repasse, ['eap.teto', 'grupos.C.teto', 'grupoC.teto']);
-        $eapPagas = (int) $this->buscarCampo($repasse, ['eap.qtdPagas', 'grupos.C.qtdPagas', 'grupoC.qtdPagas']);
-        if ($eapTeto > 0 && $eapPagas === 0) {
-            $perdaMensal = number_format($eapTeto * self::EAP_VALOR_EQUIPE, 2, ',', '.');
-            $issues[] = [
-                'codigo'     => 'EAP_SEM_EQUIPES_PAGAS',
-                'severidade' => 'critico',
-                'titulo'     => "eAP — Atenção Primária Ampliada: 0 equipes pagas de {$eapTeto} no teto",
-                'descricao'  => "O município tem teto para {$eapTeto} equipes eAP no e-Gestor, mas NENHUMA está sendo financiada. "
-                              . "Esta é a maior inconsistência financeira identificada.",
-                'impacto'    => "Perda estimada de R$ {$perdaMensal}/mês — equivalente a R$ "
-                              . number_format($eapTeto * self::EAP_VALOR_EQUIPE * 12, 2, ',', '.') . "/ano.",
-                'requisitos' => [
-                    "Verificar se as {$eapTeto} equipes eAP estão cadastradas e ativas no SCNES com CBO correto",
-                    'Confirmar vínculo das equipes com estabelecimento de saúde no e-Gestor APS',
-                    'Validar carga horária mínima dos profissionais (médico/enfermeiro) no CNES',
-                    'Se as equipes não existirem: avaliar credenciamento junto ao DAB/MS via COSEMS',
-                    'Consultar Nota Técnica DAB sobre requisitos para pagamento do eAP',
-                ],
-                'acao_url'   => 'https://cnes.datasus.gov.br',
-                'acao_label' => 'Verificar equipes no CNES',
-            ];
-        }
-
-        // ── 4. eMulti com grande capacidade ociosa ───────────────────
+        // ── 3. eMulti com grande capacidade ociosa ───────────────────
         $mTeto  = (int) $this->buscarCampo($repasse, ['emulti.teto', 'grupos.M.teto', 'grupoM.teto']);
         $mPagas = (int) $this->buscarCampo($repasse, ['emulti.qtdPagas', 'grupos.M.qtdPagas', 'grupoM.qtdPagas']);
         if ($mTeto > 0 && $mPagas > 0 && ($mTeto - $mPagas) >= 2) {

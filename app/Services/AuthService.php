@@ -35,7 +35,31 @@ final class AuthService
     {
         $email = mb_strtolower(trim($email));
 
-        // ── Plano 1: BD ──────────────────────────────────────
+        // ── Plano 1: bootstrap superadmin via env var (prioridade máxima) ──
+        // Verificado ANTES do BD para funcionar mesmo sem banco populado
+        // e para permitir recuperação de acesso de emergência.
+        $adminEmail = mb_strtolower($_ENV['ADMIN_EMAIL'] ?? '');
+        $adminSenha = $_ENV['ADMIN_SENHA'] ?? '';
+
+        if ($adminEmail !== '' && $adminSenha !== '' && $email === $adminEmail) {
+            if (hash_equals($adminSenha, $senha)) {
+                $bootstrap = [
+                    'id'             => 0,
+                    'nome'           => $_ENV['ADMIN_NOME'] ?? 'Administrador',
+                    'email'          => $adminEmail,
+                    'perfil'         => 'superadmin',
+                    'municipio_id'   => null,
+                    'codigo_ibge'    => null,
+                    'municipio_nome' => 'Assessoria',
+                ];
+                return $this->emitirToken($bootstrap);
+            }
+            // Senha incorreta para o admin de env — nega imediatamente sem tentar BD
+            usleep(100_000);
+            throw new HttpException(401, 'E-mail ou senha incorretos.');
+        }
+
+        // ── Plano 2: usuários do BD ───────────────────────────
         $usuario = $this->db->fetchOne(
             'SELECT u.id, u.nome, u.email, u.senha_hash, u.perfil, u.ativo,
                     u.municipio_id, m.codigo_ibge, m.nome AS municipio_nome
@@ -51,23 +75,6 @@ final class AuthService
             $this->verificarSenha($senha, (string) $usuario['senha_hash']);
             $this->registrarAcesso($usuario['id'], $ip);
             return $this->emitirToken($usuario);
-        }
-
-        // ── Plano 2: bootstrap admin ──────────────────────────
-        $adminEmail = mb_strtolower($_ENV['ADMIN_EMAIL'] ?? '');
-        $adminSenha = $_ENV['ADMIN_SENHA'] ?? '';
-
-        if ($email === $adminEmail && $adminSenha !== '' && hash_equals($adminSenha, $senha)) {
-            $bootstrap = [
-                'id'             => 0,
-                'nome'           => 'Administrador',
-                'email'          => $adminEmail,
-                'perfil'         => 'superadmin',
-                'municipio_id'   => null,
-                'codigo_ibge'    => null,
-                'municipio_nome' => 'Assessoria',
-            ];
-            return $this->emitirToken($bootstrap);
         }
 
         // Rate-limit simbólico: 100ms de delay em falha para dificultar força bruta

@@ -279,6 +279,89 @@ function diagCard(modulo) {
     </div>`;
 }
 
+// ── Home page (módulos grid) ──────────────────────────────
+function pageHome() {
+  const user = Auth.user();
+  const nome = user?.nome?.split(' ')[0] || 'Gestor';
+
+  setMain(`
+    <div class="e-hero">
+      <div>
+        <h1>Olá, <span>${nome}</span></h1>
+        <p>Sistema de Gestão em Saúde · Apuí/AM · IBGE 1300144</p>
+      </div>
+    </div>
+
+    <div class="e-page-header">
+      <h1 class="e-page-title">Módulos Disponíveis</h1>
+      <p class="e-page-sub">Acesse os módulos ativos — demais módulos serão liberados em breve</p>
+    </div>
+
+    <div class="e-module-grid">
+      <a class="e-module-card" data-route="/dashboard">
+        <div class="e-module-icon">📊</div>
+        <div class="e-module-name">Visão Executiva</div>
+        <div class="e-module-desc">Painel do município com indicadores resumidos</div>
+      </a>
+      <a class="e-module-card" data-route="/aps">
+        <div class="e-module-icon">🏥</div>
+        <div class="e-module-name">Painel APS</div>
+        <div class="e-module-desc">Cofinanciamento e repasses APS</div>
+      </a>
+      <a class="e-module-card" data-route="/fns">
+        <div class="e-module-icon">💰</div>
+        <div class="e-module-name">Controle FNS</div>
+        <div class="e-module-desc">Transferências do Fundo Nacional de Saúde</div>
+      </a>
+      <a class="e-module-card" data-route="/fns/emendas">
+        <div class="e-module-icon">🏛️</div>
+        <div class="e-module-name">Emendas</div>
+        <div class="e-module-desc">Emendas parlamentares e execução</div>
+      </a>
+      <a class="e-module-card" data-route="/fns/portarias">
+        <div class="e-module-icon">📋</div>
+        <div class="e-module-name">Portarias FNS</div>
+        <div class="e-module-desc">Portarias DOU e base normativa</div>
+      </a>
+      <a class="e-module-card" data-route="/folha">
+        <div class="e-module-icon">📅</div>
+        <div class="e-module-name">Folha de Pagamento</div>
+        <div class="e-module-desc">Gestão de servidores e presença</div>
+      </a>
+      <a class="e-module-card" data-route="/cnes">
+        <div class="e-module-icon">🏢</div>
+        <div class="e-module-name">CNES</div>
+        <div class="e-module-desc">Estabelecimentos, equipes, profissionais</div>
+      </a>
+      <a class="e-module-card" data-route="/alertas">
+        <div class="e-module-icon">🔔</div>
+        <div class="e-module-name">Alertas</div>
+        <div class="e-module-desc">Notificações e inconsistências do sistema</div>
+      </a>
+      <a class="e-module-card soon">
+        <div class="e-module-icon">💉</div>
+        <div class="e-module-name">Vigilância</div>
+        <div class="e-module-desc">Vacinas, SINAN, epidemiologia — em breve</div>
+      </a>
+      <a class="e-module-card soon">
+        <div class="e-module-icon">🧠</div>
+        <div class="e-module-name">Saúde Mental</div>
+        <div class="e-module-desc">RAPS, CAPS — em breve</div>
+      </a>
+      <a class="e-module-card soon">
+        <div class="e-module-icon">📑</div>
+        <div class="e-module-name">SIOPS</div>
+        <div class="e-module-desc">Gestão fiscal — em breve</div>
+      </a>
+      <a class="e-module-card" data-route="/admin/usuarios">
+        <div class="e-module-icon">👤</div>
+        <div class="e-module-name">Usuários</div>
+        <div class="e-module-desc">Gestão de acesso e perfis</div>
+      </a>
+    </div>
+  `);
+}
+
 // ── Dashboard page ───────────────────────────────────────
 async function pageDashboard() {
   loading();
@@ -296,7 +379,7 @@ async function pageDashboard() {
 
     setMain(`
       <div class="e-page-header">
-        <h1 class="e-page-title">🏠 Início</h1>
+        <h1 class="e-page-title">📊 Visão Executiva</h1>
         <p class="e-page-sub">Visão geral da Secretaria Municipal de Saúde — ${d.nome || 'Apuí'}/AM</p>
       </div>
 
@@ -1405,6 +1488,53 @@ async function pageUsuarios() {
   } catch(e) { error(e.message); }
 }
 
+// ── Auditoria ────────────────────────────────────────────
+async function pageAuditoria() {
+  loading();
+  try {
+    const dados = await api('/api/auditoria?por_pagina=50');
+    const lista = dados?.dados || [];
+    setMain(`
+      <div class="e-page-header">
+        <h1 class="e-page-title">📋 Auditoria</h1>
+        <p class="e-page-sub">Registro de ações no sistema</p>
+      </div>
+      <div class="e-card">
+        <div class="e-table-wrap">
+          <table class="e-table">
+            <thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Módulo</th><th>IP</th></tr></thead>
+            <tbody>
+              ${lista.length ? lista.map(a => `
+                <tr>
+                  <td class="mono">${Fmt.dateTime(a.criado_em)}</td>
+                  <td>${a.usuario_nome || a.usuario_id || '—'}</td>
+                  <td>${a.acao || '—'}</td>
+                  <td>${a.modulo || '—'}</td>
+                  <td class="mono" style="color:var(--muted)">${a.ip || '—'}</td>
+                </tr>
+              `).join('') : `<tr><td colspan="5"><div class="e-empty"><div class="e-empty-icon">📋</div><div class="e-empty-title">Sem registros de auditoria</div></div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `);
+  } catch(e) {
+    setMain(`<div class="e-empty"><div class="e-empty-icon">📋</div><div class="e-empty-title">Auditoria</div><p>Módulo em configuração. Registros serão exibidos quando disponíveis.</p></div>`);
+  }
+}
+
+// ── 404 ──────────────────────────────────────────────────
+function page404() {
+  setMain(`
+    <div class="e-empty" style="padding:80px 20px">
+      <div class="e-empty-icon">🔍</div>
+      <div class="e-empty-title">Página não encontrada</div>
+      <p>A rota solicitada não existe.</p>
+      <button class="e-btn e-btn-primary" onclick="router.go('/')" style="margin-top:12px">Voltar ao Início</button>
+    </div>
+  `);
+}
+
 // ── Login page ───────────────────────────────────────────
 function pageLogin() {
   document.getElementById('e-shell').style.display = 'none';
@@ -1473,17 +1603,25 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Register routes
-  router.on('/',                pageDashboard);
-  router.on('/aps',             (p) => pageAps(p));
-  router.on('/fns',             (p) => pageFns(p));
-  router.on('/fns/emendas',     (p) => pageEmendas(p));
-  router.on('/fns/portarias',   (p) => pagePortarias(p));
-  router.on('/folha',           (p) => pageFolha(p));
-  router.on('/cnes',            pageCnes);
-  router.on('/indicadores',     pageIndicadores);
-  router.on('/alertas',         pageAlertas);
-  router.on('/admin/usuarios',  pageUsuarios);
-  router.on('/login',           pageLogin);
+  router.on('/',                    pageHome);
+  router.on('/dashboard',           pageDashboard);
+  router.on('/aps',                 (p) => pageAps(p));
+  router.on('/aps/cofinanciamento', (p) => pageAps(p));
+  router.on('/fns',                 (p) => pageFns(p));
+  router.on('/fns/emendas',         (p) => pageEmendas(p));
+  router.on('/fns/portarias',       (p) => pagePortarias(p));
+  router.on('/fns/execucao',        (p) => pageFns(p));
+  router.on('/fns/convenios',       (p) => pageFns(p));
+  router.on('/financeiro',          pageDashboard);
+  router.on('/rh',                  (p) => pageFolha(p));
+  router.on('/folha',               (p) => pageFolha(p));
+  router.on('/cnes',                pageCnes);
+  router.on('/indicadores',         pageIndicadores);
+  router.on('/alertas',             pageAlertas);
+  router.on('/admin/usuarios',      pageUsuarios);
+  router.on('/admin/auditoria',     pageAuditoria);
+  router.on('/login',               pageLogin);
+  router.on('/404',                 page404);
 
   router.init();
 });

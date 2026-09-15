@@ -207,3 +207,38 @@ $router->post('/api/setup/init', function (\Ersus360\Core\Request $req) use ($co
 
     return \Ersus360\Core\Response::json(['ok' => true, 'mensagem' => 'Administrador criado. Faça login com as credenciais fornecidas.']);
 });
+
+// Sincroniza a senha do admin do banco com a variável ADMIN_SENHA (requer SETUP_KEY)
+$router->post('/api/setup/sync-admin', function (\Ersus360\Core\Request $req) use ($container): \Ersus360\Core\Response {
+    $setupKey = $_ENV['SETUP_KEY'] ?? '';
+    $body     = $req->body();
+
+    // Exige uma chave de segurança para não ser chamado por qualquer um
+    if ($setupKey === '' || ($body['setup_key'] ?? '') !== $setupKey) {
+        return \Ersus360\Core\Response::error('Chave de setup inválida.', 403);
+    }
+
+    $adminEmail = mb_strtolower($_ENV['ADMIN_EMAIL'] ?? '');
+    $adminSenha = $_ENV['ADMIN_SENHA'] ?? '';
+
+    if ($adminEmail === '' || $adminSenha === '') {
+        return \Ersus360\Core\Response::error('ADMIN_EMAIL e ADMIN_SENHA devem estar configurados como variáveis de ambiente.', 422);
+    }
+
+    /** @var \Ersus360\Core\Database $db */
+    $db   = $container->get(\Ersus360\Core\Database::class);
+    $hash = password_hash($adminSenha, PASSWORD_BCRYPT, ['cost' => 12]);
+
+    $rows = $db->execute(
+        'UPDATE usuarios SET senha_hash = :hash, atualizado_em = NOW() WHERE email = :email',
+        ['hash' => $hash, 'email' => $adminEmail],
+    );
+
+    return \Ersus360\Core\Response::json([
+        'ok'       => true,
+        'updated'  => $rows,
+        'mensagem' => $rows > 0
+            ? "Senha do admin ({$adminEmail}) sincronizada com ADMIN_SENHA."
+            : "Nenhum usuário encontrado com e-mail {$adminEmail}. Crie o usuário primeiro.",
+    ]);
+});

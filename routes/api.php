@@ -168,7 +168,42 @@ $router->group('/api/folha', [AuthMiddleware::class, PermissaoMiddleware::para('
 // ─────────────────────────────────────────────────────────────
 $router->get('/api/health', fn() => \Ersus360\Core\Response::json([
     'status'  => 'ok',
-    'version' => '2.0.0',
+    'version' => '2.1.0',
     'runtime' => 'PHP ' . PHP_VERSION,
     'ts'      => date('c'),
 ]));
+
+// ─────────────────────────────────────────────────────────────
+// SETUP — inicialização segura (só funciona quando sem usuários)
+// ─────────────────────────────────────────────────────────────
+$router->post('/api/setup/init', function (\Ersus360\Core\Request $req) use ($container): \Ersus360\Core\Response {
+    /** @var \Ersus360\Core\Database $db */
+    $db = $container->get(\Ersus360\Core\Database::class);
+
+    // Só funciona se não existir nenhum usuário no banco
+    $total = (int) $db->scalar('SELECT COUNT(*) FROM usuarios');
+    if ($total > 0) {
+        return \Ersus360\Core\Response::error('Sistema já inicializado. Use as credenciais configuradas.', 403);
+    }
+
+    $body = $req->body();
+    $email = mb_strtolower(trim($body['email'] ?? ''));
+    $senha = $body['senha'] ?? '';
+    $nome  = trim($body['nome'] ?? 'Administrador');
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($senha) < 6) {
+        return \Ersus360\Core\Response::error('E-mail inválido ou senha muito curta (mínimo 6 caracteres).', 422);
+    }
+
+    // Busca o município de Apuí
+    $municipioId = $db->scalar("SELECT id FROM municipios WHERE codigo_ibge = '1300144' LIMIT 1");
+
+    $hash = password_hash($senha, PASSWORD_BCRYPT, ['cost' => 12]);
+    $db->insert(
+        'INSERT INTO usuarios (municipio_id, nome, email, senha_hash, perfil, ativo, criado_em, atualizado_em)
+         VALUES (:municipio_id, :nome, :email, :hash, :perfil, 1, NOW(), NOW())',
+        ['municipio_id' => $municipioId ?: null, 'nome' => $nome, 'email' => $email, 'hash' => $hash, 'perfil' => 'superadmin'],
+    );
+
+    return \Ersus360\Core\Response::json(['ok' => true, 'mensagem' => 'Administrador criado. Faça login com as credenciais fornecidas.']);
+});

@@ -42,17 +42,18 @@ final class Response
 
     /**
      * Lista paginada.
-     * @param array<mixed> $items
+     * @param array<mixed>         $items
+     * @param array<string, mixed> $extra Campos extras mesclados na resposta.
      */
-    public static function paginated(array $items, int $total, int $pagina, int $porPagina): self
+    public static function paginated(array $items, int $total, int $pagina, int $porPagina, array $extra = []): self
     {
-        return self::json([
+        return self::json(array_merge([
             'dados'      => $items,
             'total'      => $total,
             'pagina'     => $pagina,
             'por_pagina' => $porPagina,
             'paginas'    => (int) ceil($total / max(1, $porPagina)),
-        ]);
+        ], $extra));
     }
 
     /** 201 Created com Location header. */

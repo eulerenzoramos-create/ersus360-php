@@ -1,6 +1,60 @@
 /* ERSUS360 — Frontend Application JS */
 'use strict';
 
+// ── Modal system ─────────────────────────────────────────
+const Modal = {
+  el: null,
+
+  _ensure() {
+    if (this.el) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'e-modal-wrap';
+    wrap.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center';
+    wrap.innerHTML = `
+      <div id="e-modal" style="background:var(--card);border-radius:14px;width:min(680px,95vw);max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.35);border:1px solid var(--border)">
+        <div style="padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:14px">
+          <h3 id="e-modal-title" style="margin:0;font-family:Syne,sans-serif;font-size:16px;font-weight:700;color:var(--text)"></h3>
+          <button onclick="Modal.close()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);line-height:1;padding:2px 6px">&times;</button>
+        </div>
+        <div id="e-modal-body" style="padding:20px 24px"></div>
+        <div style="padding:0 24px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+          <button onclick="Modal.close()" class="e-btn e-btn-outline">Cancelar</button>
+          <button id="e-modal-ok" class="e-btn e-btn-primary">Salvar</button>
+        </div>
+      </div>`;
+    wrap.style.display = 'none';
+    document.body.appendChild(wrap);
+    this.el = wrap;
+    wrap.addEventListener('click', e => { if (e.target === wrap) this.close(); });
+  },
+
+  open(title, bodyHtml, onOk) {
+    this._ensure();
+    document.getElementById('e-modal-title').textContent = title;
+    document.getElementById('e-modal-body').innerHTML = bodyHtml;
+    this.el.style.display = 'flex';
+
+    const btn = document.getElementById('e-modal-ok');
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'Salvando…';
+      try {
+        const res = await onOk();
+        if (res !== false) this.close();
+      } catch(e) {
+        Toast.show('Erro: ' + (e.erro || e.message || 'Falha ao salvar'), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar';
+      }
+    };
+  },
+
+  close() {
+    if (this.el) this.el.style.display = 'none';
+  },
+};
+
 // ── Config ──────────────────────────────────────────────
 const API = '';  // same origin
 const TOKEN_KEY = 'ersus_token';
@@ -249,19 +303,19 @@ async function pageDashboard() {
       <div class="e-hero">
         <div>
           <h1>ERSUS<span>360</span></h1>
-          <p>${d.nome || 'Secretaria Municipal de Saúde'} · IBGE ${d.ibge || '1300144'}</p>
+          <p>${d.nome || 'Secretaria Municipal de Saúde'} · IBGE ${d.ibge || d.codigo_ibge || '1300144'}</p>
         </div>
         <div class="e-hero-stats">
           <div class="e-hero-stat">
-            <div class="e-hero-stat-n" id="dash-repasses">${Fmt.brlM(resumo.total_transferencias)}</div>
-            <div class="e-hero-stat-l">Repasses FNS</div>
+            <div class="e-hero-stat-n" id="dash-repasses">${Fmt.brlM(resumo.total_transferencias ?? d.total_transferencias_ano)}</div>
+            <div class="e-hero-stat-l">Repasses FNS ${new Date().getFullYear()}</div>
           </div>
           <div class="e-hero-stat">
-            <div class="e-hero-stat-n">${resumo.total_portarias || 0}</div>
+            <div class="e-hero-stat-n">${resumo.total_portarias ?? 0}</div>
             <div class="e-hero-stat-l">Portarias</div>
           </div>
           <div class="e-hero-stat">
-            <div class="e-hero-stat-n">${resumo.alertas_ativos || 0}</div>
+            <div class="e-hero-stat-n">${resumo.alertas_ativos ?? d.alertas_ativos ?? 0}</div>
             <div class="e-hero-stat-l">Alertas ativos</div>
           </div>
         </div>
@@ -366,15 +420,15 @@ async function pageFns(params) {
       <div class="e-stats">
         <div class="e-stat">
           <div class="e-stat-label">Total recebido ${ano}</div>
-          <div class="e-stat-val accent">${Fmt.brl(r.total_ano)}</div>
+          <div class="e-stat-val accent">${Fmt.brl(r.total_liquido ?? r.total_ano ?? 0)}</div>
         </div>
         <div class="e-stat">
           <div class="e-stat-label">Transferências</div>
-          <div class="e-stat-val">${r.qtd_transferencias || dados.length}</div>
+          <div class="e-stat-val">${r.total_registros ?? r.qtd_transferencias ?? dados.length}</div>
         </div>
         <div class="e-stat">
           <div class="e-stat-label">Último repasse</div>
-          <div class="e-stat-val" style="font-size:16px">${r.ultimo_repasse ? Fmt.mes(r.ultimo_repasse) : '—'}</div>
+          <div class="e-stat-val" style="font-size:16px">${(r.ultima_competencia || r.ultimo_repasse) ? Fmt.mes(r.ultima_competencia || r.ultimo_repasse) : '—'}</div>
         </div>
       </div>
 
@@ -779,7 +833,65 @@ async function pageEmendas(params) {
       ${!dados.length ? diagCard('emendas') : ''}
     `);
 
-    window.novaEmenda = () => Toast.show('Formulário de nova emenda — em breve', 'info');
+    window.novaEmenda = () => Modal.open('Nova Emenda Parlamentar', `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="e-form-group"><label class="e-form-label">Nº da Emenda *</label>
+          <input class="e-input w-100" id="em-num" placeholder="ex: 20240001"></div>
+        <div class="e-form-group"><label class="e-form-label">Parlamentar *</label>
+          <input class="e-input w-100" id="em-parl" placeholder="Nome do parlamentar"></div>
+        <div class="e-form-group"><label class="e-form-label">Partido</label>
+          <input class="e-input w-100" id="em-part" placeholder="ex: PSD"></div>
+        <div class="e-form-group"><label class="e-form-label">Tipo *</label>
+          <select class="e-select w-100" id="em-tipo">
+            <option value="individual">Individual</option>
+            <option value="bancada">Bancada</option>
+            <option value="comissao">Comissão</option>
+            <option value="relator">Relator</option>
+          </select></div>
+        <div class="e-form-group"><label class="e-form-label">Fase *</label>
+          <select class="e-select w-100" id="em-fase">
+            <option value="proposta">Proposta</option>
+            <option value="aprovada">Aprovada</option>
+            <option value="empenhada">Empenhada</option>
+            <option value="liquidada">Liquidada</option>
+            <option value="paga">Paga</option>
+          </select></div>
+        <div class="e-form-group"><label class="e-form-label">Ano orçamentário</label>
+          <input class="e-input w-100" id="em-ano" type="number" value="${new Date().getFullYear()}"></div>
+      </div>
+      <div class="e-form-group"><label class="e-form-label">Objeto</label>
+        <input class="e-input w-100" id="em-obj" placeholder="Descrição do objeto da emenda"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+        <div class="e-form-group"><label class="e-form-label">Valor autorizado</label>
+          <input class="e-input w-100" id="em-vaut" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="e-form-group"><label class="e-form-label">Valor empenhado</label>
+          <input class="e-input w-100" id="em-vemp" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="e-form-group"><label class="e-form-label">Valor liquidado</label>
+          <input class="e-input w-100" id="em-vliq" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="e-form-group"><label class="e-form-label">Valor pago</label>
+          <input class="e-input w-100" id="em-vpago" type="number" step="0.01" placeholder="0,00"></div>
+      </div>
+      <div id="em-err" style="color:var(--red);font-size:12px;min-height:16px"></div>`,
+    async () => {
+      const num = document.getElementById('em-num').value.trim();
+      const parl = document.getElementById('em-parl').value.trim();
+      if (!parl) { document.getElementById('em-err').textContent = 'Parlamentar é obrigatório.'; return false; }
+      await api('/api/emendas', { method: 'POST', body: {
+        municipio_id: mid,
+        numero_emenda: num,
+        parlamentar: parl,
+        partido: document.getElementById('em-part').value.trim() || null,
+        tipo: document.getElementById('em-tipo').value,
+        fase: document.getElementById('em-fase').value,
+        ano_orcamentario: parseInt(document.getElementById('em-ano').value) || new Date().getFullYear(),
+        objeto: document.getElementById('em-obj').value.trim() || null,
+        valor_autorizado: parseFloat(document.getElementById('em-vaut').value) || 0,
+        valor_empenhado:  parseFloat(document.getElementById('em-vemp').value) || 0,
+        valor_liquidado:  parseFloat(document.getElementById('em-vliq').value) || 0,
+        valor_pago:       parseFloat(document.getElementById('em-vpago').value) || 0,
+      }});
+      pageEmendas(params);
+    });
   } catch(e) { error(e.message); }
 }
 
@@ -946,16 +1058,28 @@ async function pageFolha(params) {
       ${!lista.length ? diagCard('folha') : ''}
     `);
 
-    window.togglePresenca = async (id, presente, mes) => {
+    window.togglePresenca = async (matricula, presente, mes) => {
       try {
-        await api('/api/folha/presenca', { method: 'POST', body: { municipio_id: mid, matricula: id, mes_referencia: mes, presente } });
+        const diasUteis = 22;
+        await api('/api/folha/presenca', { method: 'POST', body: {
+          municipio_id: mid, matricula, mes_referencia: mes,
+          nome_funcionario: matricula,
+          dias_uteis: diasUteis,
+          dias_presentes: presente ? diasUteis : 0,
+          dias_ausentes: presente ? 0 : diasUteis,
+        }});
         Toast.show('Presença salva', 'success');
       } catch(e) { Toast.show('Erro ao salvar', 'error'); }
     };
 
-    window.salvarObs = async (id, obs, mes) => {
+    window.salvarObs = async (matricula, obs, mes) => {
       try {
-        await api('/api/folha/presenca', { method: 'POST', body: { municipio_id: mid, matricula: id, mes_referencia: mes, observacao: obs } });
+        await api('/api/folha/presenca', { method: 'POST', body: {
+          municipio_id: mid, matricula, mes_referencia: mes,
+          nome_funcionario: matricula,
+          dias_uteis: 22, dias_presentes: 22,
+          observacao: obs,
+        }});
       } catch(_) {}
     };
 
@@ -963,7 +1087,28 @@ async function pageFolha(params) {
       window.open(`/api/folha/exportar?municipio_id=${mid}&mes=${mes}`, '_blank');
     };
 
-    window.adicionarFunc = () => Toast.show('Formulário de funcionário — em breve', 'info');
+    window.adicionarFunc = () => Modal.open('Adicionar Funcionário', `
+      <div class="e-form-group"><label class="e-form-label">Matrícula *</label>
+        <input class="e-input w-100" id="mf-mat" placeholder="ex: 001234" required></div>
+      <div class="e-form-group"><label class="e-form-label">Nome completo *</label>
+        <input class="e-input w-100" id="mf-nome" placeholder="Nome do funcionário" required></div>
+      <div class="e-form-group"><label class="e-form-label">Cargo</label>
+        <input class="e-input w-100" id="mf-cargo" placeholder="ex: Agente Comunitário de Saúde"></div>
+      <div class="e-form-group"><label class="e-form-label">Lotação</label>
+        <input class="e-input w-100" id="mf-lot" placeholder="ex: UBS Central"></div>
+      <div id="mf-err" style="color:var(--red);font-size:12px;min-height:16px"></div>`,
+    async () => {
+      const mat = document.getElementById('mf-mat').value.trim();
+      const nome = document.getElementById('mf-nome').value.trim();
+      if (!mat || !nome) { document.getElementById('mf-err').textContent = 'Matrícula e nome são obrigatórios.'; return false; }
+      await api('/api/folha/presenca', { method: 'POST', body: {
+        municipio_id: mid, matricula: mat, nome_funcionario: nome,
+        cargo: document.getElementById('mf-cargo').value.trim() || null,
+        lotacao: document.getElementById('mf-lot').value.trim() || null,
+        mes_referencia: mes, dias_uteis: 22, dias_presentes: 0,
+      }});
+      pageFolha(params);
+    });
   } catch(e) { error(e.message); }
 }
 
@@ -1222,8 +1367,41 @@ async function pageUsuarios() {
       </div>
     `);
 
-    window.novoUsuario  = () => Toast.show('Formulário de usuário — em breve', 'info');
-    window.editarUsuario = () => Toast.show('Edição de usuário — em breve', 'info');
+    window.novoUsuario = () => Modal.open('Novo Usuário', `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="e-form-group"><label class="e-form-label">Nome completo *</label>
+          <input class="e-input w-100" id="us-nome" placeholder="Nome do usuário"></div>
+        <div class="e-form-group"><label class="e-form-label">E-mail *</label>
+          <input class="e-input w-100" id="us-email" type="email" placeholder="usuario@email.gov.br"></div>
+        <div class="e-form-group"><label class="e-form-label">Perfil *</label>
+          <select class="e-select w-100" id="us-perfil">
+            <option value="consulta">Consulta</option>
+            <option value="tecnico_aps">Técnico APS</option>
+            <option value="enfermeiro">Enfermeiro</option>
+            <option value="medico">Médico</option>
+            <option value="coordenador">Coordenador</option>
+            <option value="gestor">Gestor</option>
+            <option value="financeiro">Financeiro</option>
+            <option value="admin">Admin</option>
+          </select></div>
+        <div class="e-form-group"><label class="e-form-label">Senha *</label>
+          <input class="e-input w-100" id="us-senha" type="password" placeholder="Mínimo 8 caracteres"></div>
+      </div>
+      <div id="us-err" style="color:var(--red);font-size:12px;min-height:16px"></div>`,
+    async () => {
+      const nome = document.getElementById('us-nome').value.trim();
+      const email = document.getElementById('us-email').value.trim();
+      const senha = document.getElementById('us-senha').value;
+      if (!nome || !email || !senha) { document.getElementById('us-err').textContent = 'Nome, e-mail e senha são obrigatórios.'; return false; }
+      if (senha.length < 8) { document.getElementById('us-err').textContent = 'Senha deve ter ao menos 8 caracteres.'; return false; }
+      await api('/api/usuarios', { method: 'POST', body: {
+        nome, email, senha,
+        perfil: document.getElementById('us-perfil').value,
+      }});
+      pageUsuarios();
+    });
+
+    window.editarUsuario = (id) => Toast.show('Edição de usuário — selecione um usuário na tabela', 'info');
   } catch(e) { error(e.message); }
 }
 
@@ -1252,7 +1430,8 @@ async function doLogin(e) {
     });
 
     const json = await data.json();
-    if (!data.ok) throw new Error(json.erro || json.message || 'Credenciais inválidas');
+    if (!data.ok || json.erro) throw new Error(json.erro || json.message || 'Credenciais inválidas');
+    if (!json.token) throw new Error('Resposta inválida do servidor.');
 
     Auth.save(json.token, json.usuario);
     document.getElementById('e-shell').style.display = '';

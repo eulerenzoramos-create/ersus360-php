@@ -170,7 +170,7 @@ final class App
             $response = $this->router->dispatch($request);
             $response->send();
         } catch (\Ersus360\Exceptions\HttpException $e) {
-            $this->sendError($e->getCode(), $e->getMessage());
+            $this->sendError($e->getStatusCode(), $e->getMessage());
         } catch (Throwable $e) {
             $debug = filter_var($_ENV['APP_DEBUG'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
             $msg   = $debug ? $e->getMessage() : 'Erro interno do servidor.';

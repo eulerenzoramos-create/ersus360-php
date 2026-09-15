@@ -94,29 +94,48 @@ final class MunicipioRepository
             throw new HttpException(404, 'Município não encontrado.');
         }
 
-        $totalTransferencias = $this->db->scalar(
+        $totalTransferencias = (float) $this->db->scalar(
             'SELECT COALESCE(SUM(valor_liquido), 0)
              FROM transferencias_fns
              WHERE municipio_id = :id AND YEAR(competencia) = YEAR(NOW())',
             ['id' => $municipioId],
         );
 
-        $totalEmendas = $this->db->scalar(
+        $totalEmendas = (float) $this->db->scalar(
             'SELECT COALESCE(SUM(valor_empenhado), 0)
              FROM emendas
              WHERE municipio_id = :id AND YEAR(criado_em) = YEAR(NOW())',
             ['id' => $municipioId],
         );
 
-        $alertasAtivos = $this->db->scalar(
+        $totalPortarias = (int) $this->db->scalar(
+            'SELECT COUNT(*) FROM portarias WHERE municipio_id = :id',
+            ['id' => $municipioId],
+        );
+
+        $alertasAtivos = (int) $this->db->scalar(
             'SELECT COUNT(*) FROM alertas WHERE municipio_id = :id AND lido = 0',
             ['id' => $municipioId],
         );
 
-        return array_merge($municipio, [
-            'total_transferencias_ano' => $totalTransferencias,
-            'total_emendas_ano'        => $totalEmendas,
-            'alertas_ativos'           => (int) $alertasAtivos,
-        ]);
+        $ultimoRepasseFns = $this->db->scalar(
+            "SELECT DATE_FORMAT(MAX(competencia), '%Y-%m') FROM transferencias_fns WHERE municipio_id = :id",
+            ['id' => $municipioId],
+        );
+
+        return [
+            'id'   => $municipio['id'],
+            'nome' => $municipio['nome'],
+            'ibge' => $municipio['codigo_ibge'],
+            'estado' => $municipio['estado'],
+            'populacao' => $municipio['populacao'],
+            'resumo' => [
+                'total_transferencias' => $totalTransferencias,
+                'total_emendas'        => $totalEmendas,
+                'total_portarias'      => $totalPortarias,
+                'alertas_ativos'       => $alertasAtivos,
+                'ultimo_repasse_fns'   => $ultimoRepasseFns,
+            ],
+        ];
     }
 }
